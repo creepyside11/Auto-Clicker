@@ -135,6 +135,14 @@ object Bubbles {
         return step
     }
 
+    /** Удаляет все шаги активного сценария вместе с их кнопками. */
+    fun clearSteps() {
+        val scenario = activeScenario() ?: return
+        scenario.steps.clear()
+        Repo.touch()
+        rebuild()
+    }
+
     fun deleteStep(scenario: Scenario, step: Step) {
         scenario.steps.removeAll { it.id == step.id }
         Repo.touch()

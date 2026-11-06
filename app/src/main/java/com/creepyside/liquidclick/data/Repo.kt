@@ -33,6 +33,9 @@ object Repo {
     var panelEnabled by mutableStateOf(false)
     var watchersEnabled by mutableStateOf(false)
     var bubblesEnabled by mutableStateOf(false)
+    var panelSide by mutableStateOf(0)          // 0 — слева, 1 — справа
+    var panelAlpha by mutableStateOf(92)        // непрозрачность панели, %
+    val quickTexts = mutableStateListOf<String>()
     var lastScenarioId by mutableStateOf("")
     /** Счётчик изменений — заставляет Compose перерисовать списки после правок из оверлеев. */
     var version by mutableStateOf(0)
@@ -62,6 +65,14 @@ object Repo {
         lastScenarioId = p.getString("lastScenario", "") ?: ""
         panelEnabled = p.getBoolean("panel", false)
         bubblesEnabled = p.getBoolean("bubbles", false)
+        panelSide = p.getInt("panelSide", 0)
+        panelAlpha = p.getInt("panelAlpha", 92)
+        runCatching {
+            p.getString("quickTexts", null)?.let { json ->
+                val list: MutableList<String>? = gson.fromJson(json, listType)
+                list?.let { quickTexts.addAll(it) }
+            }
+        }
         if (!p.getBoolean("seeded", false)) {
             seed()
             p.edit().putBoolean("seeded", true).apply()
@@ -78,6 +89,9 @@ object Repo {
                 .putString("lastScenario", lastScenarioId)
                 .putBoolean("panel", panelEnabled)
                 .putBoolean("bubbles", bubblesEnabled)
+                .putInt("panelSide", panelSide)
+                .putInt("panelAlpha", panelAlpha)
+                .putString("quickTexts", gson.toJson(quickTexts))
                 .apply()
         }
     }

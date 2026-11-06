@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
@@ -24,11 +23,28 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.creepyside.liquidclick.data.Repo
 import com.creepyside.liquidclick.names.Generated
 import com.creepyside.liquidclick.names.Names
 
 @Composable
 fun NamesScreen() {
+    var mode by remember { mutableStateOf(0) }
+
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            GlassChip("Имена · English", mode == 0, Modifier.weight(1f)) { mode = 0 }
+            GlassChip("Свой текст", mode == 1, Modifier.weight(1f)) { mode = 1 }
+        }
+        if (mode == 0) NamesGenerator() else ManualText()
+    }
+}
+
+@Composable
+private fun NamesGenerator() {
     val context = LocalContext.current
     var selected by remember { mutableStateOf(Names.regions.toSet()) }
     var gender by remember { mutableStateOf("any") }
@@ -40,12 +56,10 @@ fun NamesScreen() {
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 18.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item {
-            ScreenHeader("Генератор имён", "Имя и фамилия отдельно, без цифр")
-        }
+        item { ScreenHeader("Генератор имён", "Имя и фамилия отдельно, только латиницей") }
 
         item {
             GlassCard {
@@ -115,7 +129,7 @@ fun NamesScreen() {
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "В имени и фамилии цифр нет никогда — только буквы. Никнейм — транслит имени и фамилии.",
+                    "Имя и фамилия всегда только латиницей и без цифр. Ник — латиница имени и фамилии.",
                     color = TextLo,
                     fontSize = 11.sp
                 )
@@ -144,7 +158,10 @@ fun NamesScreen() {
                 ) {
                     SectionTitle("Результат · " + results.size)
                     GlassChip("Копировать всё", false) {
-                        copyToClipboard(context, results.joinToString("\n") { it.full })
+                        copyToClipboard(
+                            context,
+                            results.joinToString("\n") { it.first + " " + it.last }
+                        )
                     }
                 }
             }
@@ -192,6 +209,103 @@ fun NamesScreen() {
                 color = TextLo,
                 fontSize = 11.sp
             )
+        }
+    }
+}
+
+@Composable
+private fun ManualText() {
+    val context = LocalContext.current
+    var raw by remember { mutableStateOf("") }
+    var numbering by remember { mutableStateOf(false) }
+    var startAt by remember { mutableStateOf("1") }
+    var results by remember { mutableStateOf(listOf<String>()) }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item { ScreenHeader("Свой текст", "Полностью ручной ввод — без имён и фамилий") }
+
+        item {
+            GlassCard {
+                SectionTitle("Ваш текст")
+                Spacer(Modifier.height(8.dp))
+                GlassField(
+                    value = raw,
+                    onValueChange = { raw = it },
+                    label = "Каждая строка — отдельный результат",
+                    placeholder = "первая строка\nвторая строка\nтретья",
+                    singleLine = false
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Строки можно разделять переводом строки, точкой с запятой или запятой. " +
+                        "Всё, что вы ввели, попадает в результат как есть.",
+                    color = TextLo,
+                    fontSize = 11.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Нумеровать строки", color = TextLo, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    GlassChip(if (numbering) "да" else "нет", numbering) { numbering = !numbering }
+                }
+                if (numbering) {
+                    GlassField(startAt, { startAt = it.filter { ch -> ch.isDigit() } }, "Начать с")
+                }
+            }
+        }
+
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassButton("Показать", Modifier.weight(1f), accent = true) {
+                    results = Names.manualResults(
+                        raw,
+                        numbering,
+                        startAt.toIntOrNull() ?: 1
+                    )
+                }
+                GlassButton("В быстрые тексты", Modifier.weight(1f)) {
+                    val lines = Names.manualLines(raw)
+                    if (lines.isEmpty()) return@GlassButton
+                    lines.forEach { line ->
+                        Repo.quickTexts.remove(line)
+                        Repo.quickTexts.add(0, line)
+                    }
+                    while (Repo.quickTexts.size > 30) Repo.quickTexts.removeAt(Repo.quickTexts.lastIndex)
+                    Repo.touch()
+                    copyToClipboard(context, "Сохранено: " + lines.size)
+                }
+            }
+        }
+
+        if (results.isNotEmpty()) {
+            item {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SectionTitle("Результат · " + results.size)
+                    GlassChip("Копировать всё", false) {
+                        copyToClipboard(context, results.joinToString("\n"))
+                    }
+                }
+            }
+            items(results) { line ->
+                GlassCard(Modifier.fillMaxWidth(), corner = 18.dp, padding = 12.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            line,
+                            color = TextHi,
+                            fontSize = 14.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        GlassChip("Копировать", false) { copyToClipboard(context, line) }
+                    }
+                }
+            }
         }
     }
 }

@@ -170,6 +170,14 @@ object Names {
         'э' to "e", 'ю' to "yu", 'я' to "ya", ' ' to "", '-' to "", '’' to ""
     )
 
+    /** Латиница с заглавной буквы: «Агата» → «Agata». */
+    fun toEnglish(input: String): String =
+        input.split(' ', '-')
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { part ->
+                toLatin(part).replace("_", "").replaceFirstChar { it.uppercaseChar() }
+            }
+
     fun toLatin(input: String): String {
         val sb = StringBuilder()
         for (ch in input.lowercase()) {
@@ -183,12 +191,9 @@ object Names {
         return sb.toString()
     }
 
-    /** Ник без цифр: только транслит имени и фамилии. */
-    fun nickname(first: String, last: String): String {
-        val a = toLatin(first)
-        val b = toLatin(last)
-        return if (a.isBlank() || b.isBlank()) (a + b) else a + b
-    }
+    /** Ник без цифр: только латиница имени и фамилии. */
+    fun nickname(first: String, last: String): String =
+        (toLatin(first) + toLatin(last)).replace("_", "").replace(".", "")
 
     /** Своё слово или цифры, которые пользователь хочет добавить к нику. */
     fun customSuffix(raw: String): String {
@@ -220,11 +225,27 @@ object Names {
                 else -> if (Random.nextBoolean()) namePool.male.random() else namePool.female.random()
             }
             val last = surnamePool.surnames.random()
-            val nick = nickname(first, last)
+            val firstEn = toEnglish(first)
+            val lastEn = toEnglish(last)
+            val nick = nickname(firstEn, lastEn)
             val extra = if (appendCustom) customSuffix(custom) else ""
-            result.add(Generated(first, last, nick + extra, surnameRegion))
+            result.add(Generated(firstEn, lastEn, nick + extra, surnameRegion))
         }
         return result.toList()
+    }
+
+    /** Ручной текст: строки, разделённые переводом строки, точкой с запятой или запятой. */
+    fun manualLines(raw: String): List<String> =
+        raw.split('\n', ';', ',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
+    /** Ручной текст с опциональной нумерацией. */
+    fun manualResults(raw: String, numbering: Boolean, startAt: Int = 1): List<String> {
+        val lines = manualLines(raw)
+        return lines.mapIndexed { index, line ->
+            if (numbering) (startAt + index).toString() + ". " + line else line
+        }
     }
 
     fun allNamesCount(): Int = pools.values.sumOf { it.male.size + it.female.size + it.surnames.size }

@@ -94,7 +94,7 @@ fun SettingsScreen() {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Плавающая панель", color = TextHi, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Кнопки поверх других приложений", color = TextLo, fontSize = 12.sp)
+                        Text("Все настройки доступны прямо из панели", color = TextLo, fontSize = 12.sp)
                     }
                     GlassChip(if (Repo.panelEnabled) "вкл" else "выкл", Repo.panelEnabled) {
                         Repo.panelEnabled = !Repo.panelEnabled
@@ -104,6 +104,73 @@ fun SettingsScreen() {
                             Panel.show(service)
                         } else {
                             Panel.hide()
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                SectionTitle("Сторона экрана")
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlassChip("Слева", Repo.panelSide == 0, Modifier.weight(1f)) {
+                        Repo.panelSide = 0; Repo.touch()
+                    }
+                    GlassChip("Справа", Repo.panelSide == 1, Modifier.weight(1f)) {
+                        Repo.panelSide = 1; Repo.touch()
+                    }
+                }
+                SliderRow(
+                    title = "Прозрачность панели",
+                    value = Repo.panelAlpha.toFloat(),
+                    min = 30f,
+                    max = 100f,
+                    valueText = Repo.panelAlpha.toString() + "%"
+                ) { Repo.panelAlpha = it.toInt(); Repo.touch() }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "В панели: ⚙ — настройки (сценарий, режим кликера, интервал, повторы, текст, наблюдение), " +
+                        "✚ — новая кнопка-шаг на экране, ▶ — запуск.",
+                    color = TextLo,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
+        item {
+            GlassCard {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SectionTitle("Быстрые тексты")
+                    GlassChip("Очистить", false) {
+                        Repo.quickTexts.clear()
+                        Repo.touch()
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                if (Repo.quickTexts.isEmpty()) {
+                    Text(
+                        "Пусто. Добавьте тексты в разделе «Имена → Свой текст» или через панель (⚙ → Ввести текст).",
+                        color = TextLo,
+                        fontSize = 12.sp
+                    )
+                } else {
+                    Repo.quickTexts.take(10).forEach { quick ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                quick.take(40),
+                                color = TextHi,
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            GlassChip("✕", false) {
+                                Repo.quickTexts.remove(quick)
+                                Repo.touch()
+                            }
                         }
                     }
                 }
