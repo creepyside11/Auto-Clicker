@@ -54,6 +54,11 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var captureLauncher: ActivityResultLauncher<Intent>
 
+    companion object {
+        @Volatile
+        var visible: Boolean = false
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Repo.init(this)
@@ -80,10 +85,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        visible = true
         Repo.a11yReady = A11y.ready()
         Repo.captureReady = CaptureService.isReady()
         val metrics = resources.displayMetrics
         Repo.screen = ScreenSize(metrics.widthPixels, metrics.heightPixels)
+    }
+
+    override fun onPause() {
+        visible = false
+        super.onPause()
     }
 
     fun requestCapture() {

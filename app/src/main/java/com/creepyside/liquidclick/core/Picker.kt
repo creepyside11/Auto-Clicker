@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.RectF
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -22,14 +24,24 @@ object Picker {
         val service = A11y.instance ?: return
         close()
         val view = PickView(service, true, callback, null) { close() }
-        attach(service, view)
+        show(service, view)
     }
 
     fun pickPoint(callback: (Int, Int) -> Unit) {
         val service = A11y.instance ?: return
         close()
         val view = PickView(service, false, null, callback) { close() }
-        attach(service, view)
+        show(service, view)
+    }
+
+    /** Если открыт наш экран — свернуть его, чтобы видеть целевое приложение. */
+    private fun show(service: A11y, view: View) {
+        if (com.creepyside.liquidclick.ui.MainActivity.visible) {
+            service.pressHome()
+            Handler(Looper.getMainLooper()).postDelayed({ attach(service, view) }, 320L)
+        } else {
+            attach(service, view)
+        }
     }
 
     fun close() {

@@ -63,13 +63,15 @@ object Repo {
 
     fun save() {
         val p = prefs ?: return
-        p.edit()
-            .putString("scenarios", gson.toJson(scenarios))
-            .putString("watchers", gson.toJson(watchers))
-            .putString("click", gson.toJson(click))
-            .putString("lastScenario", lastScenarioId)
-            .putBoolean("panel", panelEnabled)
-            .apply()
+        runCatching {
+            p.edit()
+                .putString("scenarios", gson.toJson(scenarios))
+                .putString("watchers", gson.toJson(watchers))
+                .putString("click", gson.toJson(click))
+                .putString("lastScenario", lastScenarioId)
+                .putBoolean("panel", panelEnabled)
+                .apply()
+        }
     }
 
     private fun seed() {
