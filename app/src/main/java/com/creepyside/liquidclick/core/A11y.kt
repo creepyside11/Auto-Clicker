@@ -44,6 +44,7 @@ class A11y : AccessibilityService() {
             Repo.a11yReady = false
         }
         Panel.hide()
+        Picker.close()
         return super.onUnbind(intent)
     }
 
@@ -53,6 +54,7 @@ class A11y : AccessibilityService() {
             Repo.a11yReady = false
         }
         Panel.hide()
+        Picker.close()
         super.onDestroy()
     }
 

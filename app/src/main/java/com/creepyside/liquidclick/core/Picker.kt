@@ -69,6 +69,7 @@ object Picker {
         params.gravity = Gravity.TOP or Gravity.START
         runCatching { wm.addView(view, params) }
         overlay = view
+        view.postDelayed({ close() }, 90000L)
     }
 
     private class PickView(
