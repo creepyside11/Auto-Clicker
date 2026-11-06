@@ -58,7 +58,10 @@ object Repo {
         }
         lastScenarioId = p.getString("lastScenario", "") ?: ""
         panelEnabled = p.getBoolean("panel", false)
-        if (scenarios.isEmpty()) seed()
+        if (!p.getBoolean("seeded", false)) {
+            seed()
+            p.edit().putBoolean("seeded", true).apply()
+        }
     }
 
     fun save() {
