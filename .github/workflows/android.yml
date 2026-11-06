@@ -42,6 +42,7 @@ jobs:
           find app/build/outputs/apk -name "*.apk" -print
           APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
           cp "$APK" "out/LiquidClick-1.0.${{ github.run_number }}.apk"
+          cp "$APK" "out/LiquidClick.apk"
           ls -lh out
 
       - name: Upload workflow artifact
@@ -61,9 +62,13 @@ jobs:
           body: |
             ## LiquidClick 1.0.${{ github.run_number }}
 
+            <img src="https://raw.githubusercontent.com/creepyside11/Auto-Clicker/main/docs/avatar.png" width="96" align="right" />
+
             Автокликер, автосвайпы, зажатия, вставка текста, сценарии
             с распознаванием текста в выделенных областях и генератор
             имён/фамилий со всего мира. Дизайн — liquid glass.
+
+            **Быстрая ссылка:** [LiquidClick.apk](https://github.com/creepyside11/Auto-Clicker/releases/latest/download/LiquidClick.apk)
 
             ### Установка
             1. Скачайте `LiquidClick-*.apk` ниже.
