@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
@@ -33,6 +34,8 @@ fun NamesScreen() {
     var gender by remember { mutableStateOf("any") }
     var count by remember { mutableStateOf(12f) }
     var mix by remember { mutableStateOf(true) }
+    var custom by remember { mutableStateOf("") }
+    var appendCustom by remember { mutableStateOf(false) }
     var results by remember { mutableStateOf(listOf<Generated>()) }
 
     LazyColumn(
@@ -41,7 +44,7 @@ fun NamesScreen() {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            ScreenHeader("Генератор имён", "Редкие имена и фамилии со всего мира")
+            ScreenHeader("Генератор имён", "Имя и фамилия отдельно, без цифр")
         }
 
         item {
@@ -71,7 +74,7 @@ fun NamesScreen() {
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "Смешивать регионы (имя + фамилия из разных культур)",
+                        "Смешивать регионы (имя и фамилия из разных культур)",
                         color = TextLo,
                         fontSize = 12.sp,
                         modifier = Modifier.weight(1f)
@@ -89,12 +92,45 @@ fun NamesScreen() {
         }
 
         item {
+            GlassCard {
+                SectionTitle("Своё слово или цифры в нике")
+                Spacer(Modifier.height(8.dp))
+                GlassField(
+                    value = custom,
+                    onValueChange = { custom = it },
+                    label = "Своё слово / цифры",
+                    placeholder = "например: pro, 228, x"
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Добавлять к нику",
+                        color = TextLo,
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    GlassChip(if (appendCustom) "да" else "нет", appendCustom) {
+                        appendCustom = !appendCustom
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "В имени и фамилии цифр нет никогда — только буквы. Никнейм — транслит имени и фамилии.",
+                    color = TextLo,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
+        item {
             GlassButton("Сгенерировать", Modifier.fillMaxWidth(), accent = true) {
                 results = Names.generate(
                     selected = selected.toList(),
                     gender = gender,
                     count = count.toInt().coerceAtLeast(1),
-                    mixRegions = mix
+                    mixRegions = mix,
+                    custom = custom,
+                    appendCustom = appendCustom
                 )
             }
         }
@@ -116,17 +152,34 @@ fun NamesScreen() {
                 GlassCard(Modifier.fillMaxWidth(), corner = 20.dp, padding = 14.dp) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                item.full,
-                                color = TextHi,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(item.nick, color = Cyan, fontSize = 12.sp)
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text("Имя: ", color = TextLo, fontSize = 12.sp)
+                                Text(
+                                    item.first,
+                                    color = TextHi,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text("Фамилия: ", color = TextLo, fontSize = 12.sp)
+                                Text(
+                                    item.last,
+                                    color = TextHi,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Text("ник: " + item.nick, color = Cyan, fontSize = 12.sp)
                             Text(item.region, color = TextLo, fontSize = 10.sp)
                         }
-                        GlassChip("Копировать", false) {
-                            copyToClipboard(context, item.full)
+                        Column(horizontalAlignment = Alignment.End) {
+                            GlassChip("Имя", false) { copyToClipboard(context, item.first) }
+                            Spacer(Modifier.height(4.dp))
+                            GlassChip("Фамилия", false) { copyToClipboard(context, item.last) }
+                            Spacer(Modifier.height(4.dp))
+                            GlassChip("Ник", false) { copyToClipboard(context, item.nick) }
                         }
                     }
                 }

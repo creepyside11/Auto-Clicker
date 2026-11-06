@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.creepyside.liquidclick.core.Bubbles
 import com.creepyside.liquidclick.core.Engine
 import com.creepyside.liquidclick.core.Picker
 import com.creepyside.liquidclick.data.Repo
@@ -42,6 +43,7 @@ import com.creepyside.liquidclick.model.StepType
 fun ScenariosScreen() {
     val context = LocalContext.current
     var editingId by remember { mutableStateOf<String?>(null) }
+    Repo.version
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -103,6 +105,23 @@ fun ScenariosScreen() {
                     Text("Нет шагов", color = TextLo, fontSize = 12.sp)
                 }
                 Spacer(Modifier.height(10.dp))
+                val bubblesOn = Bubbles.isShown() && Bubbles.activeScenario()?.id == scenario.id
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlassChip(
+                        if (bubblesOn) "◉ Кнопки на экране" else "◌ Кнопки на экране",
+                        bubblesOn,
+                        Modifier.weight(1f)
+                    ) {
+                        if (!requireA11y(context)) return@GlassChip
+                        if (bubblesOn) Bubbles.hideAll() else Bubbles.showFor(scenario.id)
+                    }
+                    GlassChip("✚ Кнопка", false, Modifier.weight(1f)) {
+                        if (!requireA11y(context)) return@GlassChip
+                        Bubbles.showFor(scenario.id)
+                        Bubbles.addBubble()
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GlassButton("Изменить", Modifier.weight(1f)) { editingId = scenario.id }
                     GlassButton("Копия", Modifier.weight(1f)) {
@@ -133,6 +152,7 @@ fun ScenariosScreen() {
 @Composable
 private fun ScenarioEditor(scenario: Scenario, onClose: () -> Unit) {
     val context = LocalContext.current
+    Repo.version
     var name by remember(scenario.id) { mutableStateOf(scenario.name) }
     var steps by remember(scenario.id) { mutableStateOf(scenario.steps.toList()) }
     var stepIndex by remember { mutableStateOf(-1) }
@@ -238,6 +258,29 @@ private fun ScenarioEditor(scenario: Scenario, onClose: () -> Unit) {
                         }
                     }
 
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GlassButton("Кнопки на экране", Modifier.weight(1f)) {
+                            if (!requireA11y(context)) return@GlassButton
+                            if (Bubbles.isShown() && Bubbles.activeScenario()?.id == scenario.id) {
+                                Bubbles.hideAll()
+                            } else {
+                                Bubbles.showFor(scenario.id)
+                            }
+                        }
+                        GlassButton("✚ Кнопка", Modifier.weight(1f), accent = true) {
+                            if (!requireA11y(context)) return@GlassButton
+                            Bubbles.showFor(scenario.id)
+                            Bubbles.addBubble()
+                            steps = scenario.steps.toList()
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Второй способ: добавьте кнопку на экран и перетащите её в нужное место. Позиция кнопки — точка нажатия. Крестик на кнопке удаляет шаг.",
+                        color = TextLo,
+                        fontSize = 11.sp
+                    )
                     Spacer(Modifier.height(8.dp))
                     GlassButton(if (showTypes) "Скрыть типы" else "＋ Добавить шаг", Modifier.fillMaxWidth(), accent = !showTypes) {
                         showTypes = !showTypes

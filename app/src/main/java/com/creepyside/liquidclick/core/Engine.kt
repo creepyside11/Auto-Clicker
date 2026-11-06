@@ -115,6 +115,7 @@ object Engine {
         Repo.save()
         running = true
         runningName = scenario.name
+        Bubbles.hideForRun()
         log("▶ " + scenario.name)
         job = scope.launch {
             var loop = 0
@@ -140,6 +141,7 @@ object Engine {
             } finally {
                 running = false
                 runningName = ""
+                Bubbles.restoreAfterRun()
                 log("■ " + scenario.name + " завершён")
             }
         }

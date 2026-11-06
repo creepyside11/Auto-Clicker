@@ -16,14 +16,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.List
 import androidx.compose.material.icons.rounded.Person
@@ -43,8 +49,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.creepyside.liquidclick.core.A11y
 import com.creepyside.liquidclick.core.CaptureService
 import com.creepyside.liquidclick.data.Repo
@@ -108,6 +119,7 @@ private data class NavItem(val icon: ImageVector, val label: String)
 @Composable
 fun LiquidApp() {
     var tab by remember { mutableStateOf(0) }
+    var showScenarioPicker by remember { mutableStateOf(false) }
     val items = listOf(
         NavItem(Icons.Rounded.PlayArrow, "Кликер"),
         NavItem(Icons.Rounded.List, "Сценарии"),
@@ -117,8 +129,14 @@ fun LiquidApp() {
     )
     Box(Modifier.fillMaxSize()) {
         GlassBackground()
-        Column(Modifier.fillMaxSize()) {
-            Box(Modifier.weight(1f)) {
+        Row(Modifier.fillMaxSize()) {
+            SideRail(
+                items = items,
+                selected = tab,
+                onSelect = { tab = it },
+                onPickScenario = { showScenarioPicker = true }
+            )
+            Box(Modifier.weight(1f).fillMaxHeight()) {
                 when (tab) {
                     0 -> ClickerScreen()
                     1 -> ScenariosScreen()
@@ -127,52 +145,163 @@ fun LiquidApp() {
                     else -> SettingsScreen()
                 }
             }
-            Row(
+        }
+    }
+
+    if (showScenarioPicker) {
+        ScenarioPickerDialog(onClose = { showScenarioPicker = false })
+    }
+}
+
+@Composable
+private fun SideRail(
+    items: List<NavItem>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    onPickScenario: () -> Unit
+) {
+    val activeScenario = Repo.findScenario(Repo.lastScenarioId)
+
+    Column(
+        Modifier
+            .width(84.dp)
+            .fillMaxHeight()
+            .padding(start = 8.dp, top = 10.dp, bottom = 10.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color.White.copy(alpha = 0.13f), Color.White.copy(alpha = 0.035f))
+                )
+            )
+            .background(Color(0x66000000))
+            .padding(vertical = 10.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        items.forEachIndexed { index, item ->
+            val active = index == selected
+            Column(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .clip(RoundedCornerShape(26.dp))
+                    .clip(RoundedCornerShape(20.dp))
                     .background(
-                        Brush.verticalGradient(
-                            listOf(Color.White.copy(alpha = 0.12f), Color.White.copy(alpha = 0.04f))
-                        )
-                    )
-                    .background(Color(0x66000000))
-                    .padding(6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                items.forEachIndexed { index, item ->
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(
-                                if (index == tab) {
-                                    Brush.linearGradient(
-                                        listOf(Aqua.copy(alpha = 0.35f), Violet.copy(alpha = 0.30f))
-                                    )
-                                } else {
-                                    Brush.linearGradient(
-                                        listOf(Color.Transparent, Color.Transparent)
-                                    )
-                                }
+                        if (active) {
+                            Brush.linearGradient(
+                                listOf(Aqua.copy(alpha = 0.40f), Violet.copy(alpha = 0.30f))
                             )
-                            .clickable { tab = index }
-                            .padding(vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            item.icon,
-                            contentDescription = item.label,
-                            tint = if (index == tab) TextHi else TextLo,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.height(3.dp))
+                        } else {
+                            Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+                        }
+                    )
+                    .clickable { onSelect(index) }
+                    .padding(vertical = 9.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    item.icon,
+                    contentDescription = item.label,
+                    tint = if (active) TextHi else TextLo,
+                    modifier = Modifier.size(21.dp)
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    item.label,
+                    color = if (active) TextHi else TextLo,
+                    fontSize = 9.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color.White.copy(alpha = 0.07f))
+                .clickable { onPickScenario() }
+                .padding(vertical = 8.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("СЦЕНАРИЙ", color = TextLo, fontSize = 8.sp, letterSpacing = 1.sp)
+            Spacer(Modifier.height(3.dp))
+            Text(
+                activeScenario?.name ?: "не выбран",
+                color = if (activeScenario != null) Mint else TextLo,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun ScenarioPickerDialog(onClose: () -> Unit) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxWidth().padding(20.dp)) {
+            GlassCard(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Сценарий для запуска", color = TextHi, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    GlassChip("Закрыть", false) { onClose() }
+                }
+                Spacer(Modifier.height(10.dp))
+                Column(
+                    Modifier
+                        .heightIn(max = 460.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (Repo.scenarios.isEmpty()) {
                         Text(
-                            item.label,
-                            color = if (index == tab) TextHi else TextLo,
-                            fontSize = 10.sp
+                            "Сценариев пока нет. Создайте в разделе «Сценарии».",
+                            color = TextLo,
+                            fontSize = 13.sp
                         )
+                    }
+                    Repo.scenarios.forEach { scenario ->
+                        val active = scenario.id == Repo.lastScenarioId
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(
+                                    if (active) Aqua.copy(alpha = 0.18f) else Color.Transparent
+                                )
+                                .clickable {
+                                    Repo.lastScenarioId = scenario.id
+                                    Repo.save()
+                                    onClose()
+                                }
+                                .padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    scenario.name,
+                                    color = TextHi,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    scenario.steps.size.toString() + " шагов",
+                                    color = TextLo,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            if (active) {
+                                Text("выбран", color = Cyan, fontSize = 11.sp)
+                            }
+                        }
                     }
                 }
             }

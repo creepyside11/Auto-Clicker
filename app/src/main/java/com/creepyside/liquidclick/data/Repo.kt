@@ -32,7 +32,10 @@ object Repo {
     var captureReady by mutableStateOf(false)
     var panelEnabled by mutableStateOf(false)
     var watchersEnabled by mutableStateOf(false)
+    var bubblesEnabled by mutableStateOf(false)
     var lastScenarioId by mutableStateOf("")
+    /** Счётчик изменений — заставляет Compose перерисовать списки после правок из оверлеев. */
+    var version by mutableStateOf(0)
 
     fun init(c: Context) {
         if (loaded) return
@@ -58,6 +61,7 @@ object Repo {
         }
         lastScenarioId = p.getString("lastScenario", "") ?: ""
         panelEnabled = p.getBoolean("panel", false)
+        bubblesEnabled = p.getBoolean("bubbles", false)
         if (!p.getBoolean("seeded", false)) {
             seed()
             p.edit().putBoolean("seeded", true).apply()
@@ -73,6 +77,7 @@ object Repo {
                 .putString("click", gson.toJson(click))
                 .putString("lastScenario", lastScenarioId)
                 .putBoolean("panel", panelEnabled)
+                .putBoolean("bubbles", bubblesEnabled)
                 .apply()
         }
     }
@@ -110,6 +115,11 @@ object Repo {
                 enabled = false
             )
         )
+        save()
+    }
+
+    fun touch() {
+        version++
         save()
     }
 

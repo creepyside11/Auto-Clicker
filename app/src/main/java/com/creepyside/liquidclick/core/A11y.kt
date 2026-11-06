@@ -27,6 +27,7 @@ class A11y : AccessibilityService() {
         Repo.screen = ScreenSize(dm.widthPixels, dm.heightPixels)
         main.post {
             if (Repo.panelEnabled) Panel.show(this)
+            if (Repo.bubblesEnabled) Bubbles.showActive()
         }
     }
 

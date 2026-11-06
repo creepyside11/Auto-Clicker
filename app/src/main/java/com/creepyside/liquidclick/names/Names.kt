@@ -2,7 +2,14 @@ package com.creepyside.liquidclick.names
 
 import kotlin.random.Random
 
-data class Generated(val full: String, val nick: String, val region: String)
+data class Generated(
+    val first: String,
+    val last: String,
+    val nick: String,
+    val region: String
+) {
+    val full: String get() = first + " " + last
+}
 
 object Names {
 
@@ -176,22 +183,26 @@ object Names {
         return sb.toString()
     }
 
-    fun nickname(full: String): String {
-        val parts = full.split(" ").filter { it.isNotBlank() }
-        val base = parts.joinToString(".") { toLatin(it) }.replace("..", ".")
-        val tail = if (Random.nextBoolean()) {
-            (Random.nextInt(10, 99)).toString()
-        } else {
-            listOf("x", "pro", "ace", "rus", "gg", "off").random()
-        }
-        return base + tail
+    /** Ник без цифр: только транслит имени и фамилии. */
+    fun nickname(first: String, last: String): String {
+        val a = toLatin(first)
+        val b = toLatin(last)
+        return if (a.isBlank() || b.isBlank()) (a + b) else a + b
+    }
+
+    /** Своё слово или цифры, которые пользователь хочет добавить к нику. */
+    fun customSuffix(raw: String): String {
+        val cleaned = raw.trim().lowercase().filter { it.isLetterOrDigit() || it == '_' || it == '.' }
+        return if (cleaned.isEmpty()) "" else cleaned
     }
 
     fun generate(
         selected: List<String>,
         gender: String,
         count: Int,
-        mixRegions: Boolean = true
+        mixRegions: Boolean = true,
+        custom: String = "",
+        appendCustom: Boolean = false
     ): List<Generated> {
         val active = if (selected.isEmpty()) regions else selected.filter { pools.containsKey(it) }
         if (active.isEmpty()) return emptyList()
@@ -209,8 +220,9 @@ object Names {
                 else -> if (Random.nextBoolean()) namePool.male.random() else namePool.female.random()
             }
             val last = surnamePool.surnames.random()
-            val full = "$first $last"
-            result.add(Generated(full, nickname(full), surnameRegion))
+            val nick = nickname(first, last)
+            val extra = if (appendCustom) customSuffix(custom) else ""
+            result.add(Generated(first, last, nick + extra, surnameRegion))
         }
         return result.toList()
     }

@@ -20,13 +20,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Плавающая стеклянная панель управления поверх других приложений. */
+/** Вертикальная стеклянная панель управления у края экрана. */
 object Panel {
 
     private var root: View? = null
     private var params: WindowManager.LayoutParams? = null
     private var wm: WindowManager? = null
     private var playLabel: TextView? = null
+    private var bubbleLabel: TextView? = null
     private val handler = Handler(Looper.getMainLooper())
     private var ticker: Runnable? = null
 
@@ -36,9 +37,9 @@ object Panel {
         wm = windowManager
 
         val container = LinearLayout(service).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(service, 8), dp(service, 8), dp(service, 8), dp(service, 8))
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(service, 6), dp(service, 8), dp(service, 6), dp(service, 8))
             background = GradientDrawable().apply {
                 cornerRadius = dp(service, 30).toFloat()
                 setColor(0xE60A1020.toInt())
@@ -50,39 +51,26 @@ object Panel {
         val handle = TextView(service).apply {
             text = "⠿"
             setTextColor(0x99FFFFFF.toInt())
-            textSize = 16f
+            textSize = 15f
             gravity = Gravity.CENTER
-            setPadding(dp(service, 8), 0, dp(service, 8), 0)
-            setOnTouchListener(dragListener(service, container))
+            setPadding(0, 0, 0, dp(service, 2))
+            setOnTouchListener(dragListener(container))
         }
 
-        val play = TextView(service).apply {
-            text = if (Engine.running) "■" else "▶"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 17f
-            gravity = Gravity.CENTER
-            setPadding(dp(service, 14), dp(service, 10), dp(service, 14), dp(service, 10))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(service, 22).toFloat()
-                setColor(0x3322D3EE)
-                setStroke(dp(service, 1), 0x667DF9FF)
+        val play = iconButton(service, "▶", accent = true) {
+            if (Engine.running) {
+                Engine.stopScenario()
+                toast(service, "Остановлено")
+            } else {
+                startSelected(service)
             }
-            setOnClickListener {
-                if (Engine.running) {
-                    Engine.stopScenario()
-                    toast(service, "Остановлено")
-                } else {
-                    startLast(service)
-                }
-                refresh()
-            }
+            refresh()
         }
         playLabel = play
 
         val point = iconButton(service, "◎") {
             Picker.pickPoint { x, y ->
-                Repo.click.x = x
-                Repo.click.y = y
+                Repo.click = Repo.click.copy(x = x, y = y)
                 Repo.save()
                 toast(service, "Точка: $x, $y")
             }
@@ -93,11 +81,29 @@ object Panel {
                 val name = "Область " + SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
                 Repo.watchers.add(Watcher(name = name, region = r, enabled = false))
                 Repo.save()
-                toast(service, "Область сохранена — задайте текст в приложении")
+                toast(service, "Область сохранена")
             }
         }
 
-        val open = iconButton(service, "⚙") {
+        val bubble = iconButton(service, "✚") {
+            val step = Bubbles.addBubble()
+            if (step == null) {
+                toast(service, "Сначала выберите сценарий")
+            } else {
+                toast(service, "Кнопка добавлена — перетащите")
+            }
+            refresh()
+        }
+        bubbleLabel = bubble
+
+        val eye = iconButton(service, "◉") {
+            val shown = Bubbles.toggle()
+            toast(service, if (shown) "Кнопки показаны" else "Кнопки скрыты")
+            refresh()
+        }
+        bubbleLabel = eye
+
+        val open = iconButton(service, "☰") {
             val intent = Intent(service, MainActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             runCatching { service.startActivity(intent) }
@@ -114,6 +120,8 @@ object Panel {
         container.addView(play)
         container.addView(point)
         container.addView(region)
+        container.addView(bubble)
+        container.addView(eye)
         container.addView(open)
         container.addView(close)
 
@@ -126,8 +134,8 @@ object Panel {
             PixelFormat.TRANSLUCENT
         )
         lp.gravity = Gravity.TOP or Gravity.START
-        lp.x = dp(service, 12)
-        lp.y = dp(service, 220)
+        lp.x = dp(service, 6)
+        lp.y = dp(service, 180)
         params = lp
 
         runCatching { windowManager.addView(container, lp) }
@@ -141,6 +149,7 @@ object Panel {
         stopTicker()
         runCatching { wm?.removeView(view) }
         playLabel = null
+        bubbleLabel = null
     }
 
     fun isShown(): Boolean = root != null
@@ -164,9 +173,10 @@ object Panel {
 
     private fun refresh() {
         playLabel?.text = if (Engine.running) "■" else "▶"
+        bubbleLabel?.alpha = if (Bubbles.isShown()) 1f else 0.55f
     }
 
-    private fun startLast(service: A11y) {
+    private fun startSelected(service: A11y) {
         val scenario = Repo.findScenario(Repo.lastScenarioId) ?: Repo.scenarios.firstOrNull()
         if (scenario != null) {
             Engine.runScenario(service, scenario)
@@ -175,18 +185,30 @@ object Panel {
         }
     }
 
-    private fun iconButton(service: A11y, symbol: String, action: () -> Unit): TextView {
+    private fun iconButton(service: A11y, symbol: String, accent: Boolean = false, action: () -> Unit): TextView {
         return TextView(service).apply {
             text = symbol
-            setTextColor(0xE6FFFFFF.toInt())
-            textSize = 16f
+            setTextColor(0xF2FFFFFF.toInt())
+            textSize = 15f
             gravity = Gravity.CENTER
-            setPadding(dp(service, 12), dp(service, 10), dp(service, 12), dp(service, 10))
+            setPadding(dp(service, 8), dp(service, 9), dp(service, 8), dp(service, 9))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                if (accent) {
+                    setColor(0x4022D3EE)
+                    setStroke(dp(service, 1), 0x807DF9FF.toInt())
+                } else {
+                    setColor(0x14FFFFFF)
+                }
+            }
+            val lp = LinearLayout.LayoutParams(dp(service, 40), dp(service, 40))
+            lp.topMargin = dp(service, 5)
+            layoutParams = lp
             setOnClickListener { action() }
         }
     }
 
-    private fun dragListener(service: A11y, container: View): View.OnTouchListener {
+    private fun dragListener(container: View): View.OnTouchListener {
         var startRawX = 0f
         var startRawY = 0f
         var startX = 0
