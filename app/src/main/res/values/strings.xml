@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LiquidClick</string>
+    <string name="a11y_desc">LiquidClick выполняет нажатия, свайпы, зажатия и ввод текста по вашим сценариям. Служба не собирает и не передаёт ваши данные.</string>
+    <string name="a11y_label">LiquidClick — автоматизация</string>
+</resources>

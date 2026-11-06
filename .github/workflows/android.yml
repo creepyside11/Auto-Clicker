@@ -1,0 +1,73 @@
+name: Build & Release APK
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build release APK
+        run: gradle :app:assembleRelease --stacktrace
+
+      - name: Collect APK
+        run: |
+          mkdir -p out
+          find app/build/outputs/apk -name "*.apk" -print
+          APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          cp "$APK" "out/LiquidClick-1.0.${{ github.run_number }}.apk"
+          ls -lh out
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiquidClick-apk
+          path: out/*.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: LiquidClick 1.0.${{ github.run_number }}
+          make_latest: true
+          fail_on_unmatched_files: true
+          body: |
+            ## LiquidClick 1.0.${{ github.run_number }}
+
+            Автокликер, автосвайпы, зажатия, вставка текста, сценарии
+            с распознаванием текста в выделенных областях и генератор
+            имён/фамилий со всего мира. Дизайн — liquid glass.
+
+            ### Установка
+            1. Скачайте `LiquidClick-*.apk` ниже.
+            2. Разрешите установку из этого источника.
+            3. В приложении включите **Службу доступности** и разрешение
+               на **захват экрана** (для распознавания текста).
+          files: out/*.apk

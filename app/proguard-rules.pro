@@ -1,0 +1,3 @@
+-keep class com.creepyside.liquidclick.model.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
