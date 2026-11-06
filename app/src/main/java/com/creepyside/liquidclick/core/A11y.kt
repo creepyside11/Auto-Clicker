@@ -60,7 +60,7 @@ class A11y : AccessibilityService() {
         main.post {
             val stroke = GestureDescription.StrokeDescription(path, 0L, duration.coerceIn(1L, 29000L))
             val gesture = GestureDescription.Builder().addStroke(stroke).build()
-            val callback = object : GestureDescription.GestureResultCallback() {
+            val callback = object : AccessibilityService.GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription?) {
                     done?.invoke()
                 }
