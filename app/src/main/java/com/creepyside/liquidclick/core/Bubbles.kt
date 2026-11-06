@@ -16,6 +16,8 @@ import com.creepyside.liquidclick.model.Region
 import com.creepyside.liquidclick.model.Scenario
 import com.creepyside.liquidclick.model.Step
 import com.creepyside.liquidclick.model.StepType
+import com.creepyside.liquidclick.ui.MainActivity
+import com.creepyside.liquidclick.ui.Nav
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -184,8 +186,6 @@ object Bubbles {
             badge,
             FrameLayout.LayoutParams(badgeSize, badgeSize).apply {
                 gravity = Gravity.TOP or Gravity.END
-                topMargin = -badgeSize / 4
-                marginEnd = -badgeSize / 4
             }
         )
 
@@ -247,11 +247,16 @@ object Bubbles {
                             Toast.LENGTH_SHORT
                         ).show()
                     } else {
-                        Toast.makeText(
-                            service,
-                            "${StepType.title(step.type)} · ${step.x}, ${step.y}",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Nav.pendingScenarioId = scenario.id
+                        Nav.pendingStepId = step.id
+                        val intent = android.content.Intent(service, MainActivity::class.java)
+                        intent.addFlags(
+                            android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                                android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        )
+                        intent.putExtra("scenario_id", scenario.id)
+                        intent.putExtra("step_id", step.id)
+                        runCatching { service.startActivity(intent) }
                     }
                     true
                 }

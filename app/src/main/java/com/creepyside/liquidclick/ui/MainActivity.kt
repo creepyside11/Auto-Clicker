@@ -73,6 +73,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Repo.init(this)
+        readIntent(intent)
         captureLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
@@ -94,6 +95,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        if (intent != null) readIntent(intent)
+    }
+
+    private fun readIntent(intent: Intent?) {
+        val scenarioId = intent?.getStringExtra("scenario_id")
+        if (scenarioId != null) {
+            Nav.pendingScenarioId = scenarioId
+            Nav.pendingStepId = intent.getStringExtra("step_id")
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         visible = true
@@ -101,10 +115,12 @@ class MainActivity : ComponentActivity() {
         Repo.captureReady = CaptureService.isReady()
         val metrics = resources.displayMetrics
         Repo.screen = ScreenSize(metrics.widthPixels, metrics.heightPixels)
+        com.creepyside.liquidclick.core.Bubbles.hideForRun()
     }
 
     override fun onPause() {
         visible = false
+        com.creepyside.liquidclick.core.Bubbles.restoreAfterRun()
         super.onPause()
     }
 
@@ -120,6 +136,9 @@ private data class NavItem(val icon: ImageVector, val label: String)
 fun LiquidApp() {
     var tab by remember { mutableStateOf(0) }
     var showScenarioPicker by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(Nav.pendingScenarioId) {
+        if (Nav.pendingScenarioId != null) tab = 1
+    }
     val items = listOf(
         NavItem(Icons.Rounded.PlayArrow, "Кликер"),
         NavItem(Icons.Rounded.List, "Сценарии"),

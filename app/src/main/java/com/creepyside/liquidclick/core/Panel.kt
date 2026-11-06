@@ -94,8 +94,6 @@ object Panel {
             }
             refresh()
         }
-        bubbleLabel = bubble
-
         val eye = iconButton(service, "◉") {
             val shown = Bubbles.toggle()
             toast(service, if (shown) "Кнопки показаны" else "Кнопки скрыты")

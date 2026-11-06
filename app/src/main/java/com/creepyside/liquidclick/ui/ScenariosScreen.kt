@@ -44,6 +44,10 @@ fun ScenariosScreen() {
     val context = LocalContext.current
     var editingId by remember { mutableStateOf<String?>(null) }
     Repo.version
+    androidx.compose.runtime.LaunchedEffect(Nav.pendingScenarioId) {
+        val id = Nav.pendingScenarioId
+        if (id != null && Repo.findScenario(id) != null) editingId = id
+    }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -145,18 +149,31 @@ fun ScenariosScreen() {
 
     val editing = Repo.scenarios.firstOrNull { it.id == editingId }
     if (editing != null) {
-        ScenarioEditor(editing) { editingId = null }
+        ScenarioEditor(editing, initialStepId = Nav.pendingStepId) {
+            editingId = null
+            Nav.clear()
+        }
     }
 }
 
 @Composable
-private fun ScenarioEditor(scenario: Scenario, onClose: () -> Unit) {
+private fun ScenarioEditor(scenario: Scenario, initialStepId: String? = null, onClose: () -> Unit) {
     val context = LocalContext.current
     Repo.version
     var name by remember(scenario.id) { mutableStateOf(scenario.name) }
     var steps by remember(scenario.id) { mutableStateOf(scenario.steps.toList()) }
     var stepIndex by remember { mutableStateOf(-1) }
     var showTypes by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(initialStepId) {
+        if (initialStepId != null) {
+            val index = scenario.steps.indexOfFirst { it.id == initialStepId }
+            if (index >= 0) {
+                steps = scenario.steps.toList()
+                stepIndex = index
+            }
+            Nav.pendingStepId = null
+        }
+    }
 
     fun persist() {
         scenario.name = if (name.isBlank()) "Сценарий" else name
