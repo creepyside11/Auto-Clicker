@@ -48,14 +48,28 @@ class CaptureService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        if (pendingData == null) {
+            // Токен захвата потерян (перезапуск процесса) — служба не нужна.
+            stopSelf()
+            return
+        }
         instance = this
-        startNotification()
+        val started = runCatching { startNotification() }.isSuccess
+        if (!started) {
+            instance = null
+            stopSelf()
+            return
+        }
         thread = HandlerThread("liquidclick-capture").also { it.start() }
         val dm = getSystemService(DisplayManager::class.java)
         dm.registerDisplayListener(displayListener, Handler(thread!!.looper))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (pendingData == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (projection == null) {
             startProjection()
         }

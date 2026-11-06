@@ -59,6 +59,29 @@ fun ClickerScreen() {
             ScreenHeader("Кликер", "Тап · свайп · зажатие")
         }
 
+        if (!Repo.a11yReady) {
+            item {
+                GlassCard {
+                    Text(
+                        "Шаг 1 · Служба доступности",
+                        color = TextHi,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Без неё приложение не может нажимать и вставлять текст. Откройте настройки и включите «LiquidClick».",
+                        color = TextLo,
+                        fontSize = 12.sp
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    GlassButton("Включить службу", Modifier.fillMaxWidth(), accent = true) {
+                        openAccessibilitySettings(context)
+                    }
+                }
+            }
+        }
+
         item {
             GlassCard {
                 Row(
