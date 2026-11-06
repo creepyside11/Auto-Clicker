@@ -3,11 +3,13 @@ package com.creepyside.liquidclick
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import com.creepyside.liquidclick.data.Repo
 
 class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Repo.init(this)
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CH_RUN, "Автоматизация", NotificationManager.IMPORTANCE_LOW)
