@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.creepyside.liquidclick.core.Times
 import com.creepyside.liquidclick.model.ClickConfig
 import com.creepyside.liquidclick.model.MatchMode
 import com.creepyside.liquidclick.model.Region

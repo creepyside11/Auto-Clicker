@@ -167,7 +167,7 @@ object Engine {
             scenarioName = runningName
         )
         val text = Names.applyTokens(template, person)
-        log("✎ " + person.full() + " · " + person.nick + " → сохранено")
+        log("✎ " + person.full + " · " + person.nick + " → сохранено")
         return text
     }
 
