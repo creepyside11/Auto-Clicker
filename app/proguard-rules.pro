@@ -1,3 +1,2 @@
--keep class com.creepyside.liquidclick.model.** { *; }
--keepattributes Signature
--keepattributes *Annotation*
+-dontwarn org.json.**
+-keep class com.creepyside.mathai.engine.** { *; }

@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LiquidClick</string>
-    <string name="a11y_desc">LiquidClick выполняет нажатия, свайпы, зажатия и ввод текста по вашим сценариям. Служба не собирает и не передаёт ваши данные.</string>
-    <string name="a11y_label">LiquidClick — автоматизация</string>
+    <string name="app_name">MathAI</string>
+    <string name="subtitle">Локальная нейросеть · работает офлайн</string>
+    <string name="input_hint">Например: 2√(16)+5^2  или  3/4 + 1/6  или  2x+3=7</string>
+    <string name="solve">Решить</string>
+    <string name="photo">Фото</string>
+    <string name="camera">Камера</string>
+    <string name="clear">Очистить</string>
+    <string name="recognized">Распознано</string>
+    <string name="answer">Ответ</string>
+    <string name="steps">Решение по шагам</string>
+    <string name="empty_input">Введите пример или загрузите фото</string>
+    <string name="recognizing">Распознаю фото…</string>
+    <string name="nothing_found">Не удалось найти выражение на фото. Попробуйте обрезать изображение.</string>
+    <string name="copy_done">Скопировано</string>
+    <string name="model_info">Модель: %1$s · %2$d классов · %3$s</string>
 </resources>

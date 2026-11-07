@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg_deep">#05070D</color>
-    <color name="ic_launcher_background">#060A16</color>
+    <color name="bg">#FF0A1120</color>
+    <color name="surface">#FF121C30</color>
+    <color name="surface2">#FF18253D</color>
+    <color name="stroke">#FF22344F</color>
+    <color name="accent">#FF5B8CFF</color>
+    <color name="accent2">#FF35E0B0</color>
+    <color name="text">#FFE9EFFB</color>
+    <color name="muted">#FF93A7C6</color>
+    <color name="warn">#FFFF7A7A</color>
+    <color name="icon_bg">#FF0A1120</color>
 </resources>

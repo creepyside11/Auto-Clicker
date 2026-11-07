@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
+      - 'tools/**'
   workflow_dispatch:
 
 permissions:
@@ -33,6 +34,9 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: Unit tests (движок + OCR)
+        run: gradle :app:testDebugUnitTest --stacktrace
+
       - name: Build release APK
         run: gradle :app:assembleRelease --stacktrace
 
@@ -41,14 +45,24 @@ jobs:
           mkdir -p out
           find app/build/outputs/apk -name "*.apk" -print
           APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
-          cp "$APK" "out/LiquidClick-1.0.${{ github.run_number }}.apk"
-          cp "$APK" "out/LiquidClick.apk"
+          cp "$APK" "out/MathAI-1.0.${{ github.run_number }}.apk"
+          cp "$APK" "out/MathAI.apk"
           ls -lh out
+
+      - name: Test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            app/build/reports/tests/**
+            app/build/test-results/**
+          if-no-files-found: ignore
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LiquidClick-apk
+          name: MathAI-apk
           path: out/*.apk
           if-no-files-found: error
 
@@ -56,23 +70,25 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: LiquidClick 1.0.${{ github.run_number }}
+          name: MathAI 1.0.${{ github.run_number }}
           make_latest: true
           fail_on_unmatched_files: true
           body: |
-            ## LiquidClick 1.0.${{ github.run_number }}
+            ## MathAI 1.0.${{ github.run_number }}
 
-            <img src="https://raw.githubusercontent.com/creepyside11/Auto-Clicker/main/docs/avatar.png" width="96" align="right" />
+            Локальная нейросеть, которая читает математические примеры с фото
+            и решает их по шагам. Всё считается на устройстве, интернет не нужен.
 
-            Автокликер, автосвайпы, зажатия, вставка текста, сценарии
-            с распознаванием текста в выделенных областях и генератор
-            имён/фамилий со всего мира. Дизайн — liquid glass.
+            **Быстрая ссылка:** [MathAI.apk](https://github.com/creepyside11/Auto-Clicker/releases/latest/download/MathAI.apk)
 
-            **Быстрая ссылка:** [LiquidClick.apk](https://github.com/creepyside11/Auto-Clicker/releases/latest/download/LiquidClick.apk)
+            ### Что умеет
+            - ввод примеров текстом и по фото (галерея, камера, «Поделиться»);
+            - распознавание цифр, знаков, дробей, корней (√, ∛) и степеней;
+            - точная арифметика: дроби, проценты, факториал, π, тригонометрия, логарифмы;
+            - решение линейных и квадратных уравнений (`2x+3=7`, `x^2-5x+6=0`);
+            - пошаговое решение.
 
             ### Установка
-            1. Скачайте `LiquidClick-*.apk` ниже.
+            1. Скачайте `MathAI-*.apk` ниже.
             2. Разрешите установку из этого источника.
-            3. В приложении включите **Службу доступности** и разрешение
-               на **захват экрана** (для распознавания текста).
           files: out/*.apk

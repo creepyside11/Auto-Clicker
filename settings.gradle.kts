@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LiquidClick"
+rootProject.name = "MathAI"
 include(":app")
