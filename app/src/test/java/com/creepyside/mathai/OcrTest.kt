@@ -25,19 +25,21 @@ class OcrTest {
 
     private class Case(val expr: String, val gray: Gray)
 
+    private fun readLeInt(inp: DataInputStream): Int = Integer.reverseBytes(inp.readInt())
+
     private fun readCases(file: File): List<Case> {
         val out = ArrayList<Case>()
         DataInputStream(file.inputStream().buffered()).use { inp ->
             val magic = ByteArray(4)
             inp.readFully(magic)
             require(String(magic) == "MLN1") { "плохой файл lines.bin" }
-            val count = inp.readInt()
+            val count = readLeInt(inp)
             for (k in 0 until count) {
-                val nlen = inp.readInt()
+                val nlen = readLeInt(inp)
                 val name = ByteArray(nlen)
                 inp.readFully(name)
-                val w = inp.readInt()
-                val h = inp.readInt()
+                val w = readLeInt(inp)
+                val h = readLeInt(inp)
                 val data = ByteArray(w * h)
                 inp.readFully(data)
                 val floats = FloatArray(w * h)
