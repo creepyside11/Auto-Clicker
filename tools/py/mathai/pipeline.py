@@ -523,12 +523,27 @@ def assemble(glyphs, bars, ref, line_cy):
         used_bars.add(bi)
         for j, _ in num + den:
             used_glyphs.add(j)
-        # черты корней внутри числителя/знаменателя передаём в рекурсию
+        # винкулумы корней внутри числителя/знаменателя уже израсходованы —
+        # иначе они выйдут наружу как лишние минусы
         for j, _ in num + den:
             if j in vin:
                 used_bars.add(vin[j])
+        # вложенные дроби: черты внутри числителя/знаменателя уходят в рекурсию
         nb = [bars[vin[j]] for j, _ in num if j in vin]
         db = [bars[vin[j]] for j, _ in den if j in vin]
+        for bj, b2 in enumerate(bars):
+            if bj == bi or bj in used_bars:
+                continue
+            if b2.x1 < b.x0 or b2.x0 > b.x1:
+                continue
+            if b2.y1 < b.y0:
+                nb.append(b2)
+            elif b2.y0 > b.y1:
+                db.append(b2)
+        for b2 in nb + db:
+            for bj, b3 in enumerate(bars):
+                if b3 is b2:
+                    used_bars.add(bj)
         n = assemble([h for _, h in num], nb, ref, line_cy)
         d = assemble([h for _, h in den], db, ref, line_cy)
         if n and d:

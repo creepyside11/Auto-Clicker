@@ -158,8 +158,8 @@ class GlyphRenderer:
         binar = (arr > 0.45).astype(np.uint8)
         t = self.rng.rand()
         ink_before = int(binar.sum())
-        if t < 0.28:
-            binar = _dilate(binar, int(self.rng.randint(1, 3)))
+        if t < 0.24:
+            binar = _dilate(binar, 1 if self.rng.rand() < 0.75 else 2)
         elif t < 0.52:
             thin = _erode(binar)
             # если эрозия почти стёрла глиф — оставляем исходный вариант
@@ -189,6 +189,11 @@ class GlyphRenderer:
         if (y1 - y0) < 5 or (x1 - x0) < 2 or int((arr > 0.4).sum()) < 25:
             return self.sample(ch)
         out = normalize_glyph(arr[y0:y1, x0:x1])
+        # отбраковка мусора: перераздутый или почти пустой глиф только мешает
+        ink = float((out > 0.4).mean())
+        lo, hi = (0.02, 0.80) if ch == '.' else (0.015, 0.42)
+        if not (lo <= ink <= hi):
+            return self.sample(ch)
         if self.rng.rand() < 0.5:
             noise = self.rng.randn(*out.shape).astype(np.float32) * self.rng.uniform(0.02, 0.09)
             out = np.clip(out + noise, 0.0, 1.0)
