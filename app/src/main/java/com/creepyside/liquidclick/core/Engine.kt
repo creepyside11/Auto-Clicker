@@ -414,7 +414,11 @@ object Engine {
         y: Int = 0,
         x2: Int = 0,
         y2: Int = 0
-    ): Boolean = Windows.open(ctx, pkg, ox, oy, x, y, x2, y2)
+    ): Boolean {
+        val width = if (x2 > x) x2 - x else 0
+        val height = if (y2 > y) y2 - y else 0
+        return Windows.openInBounds(ctx, pkg, ox, oy, width, height)
+    }
 
     suspend fun readRegion(region: Region): String {
         val full = CaptureService.capture() ?: return ""

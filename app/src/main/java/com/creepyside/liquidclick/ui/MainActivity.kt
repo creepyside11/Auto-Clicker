@@ -143,7 +143,7 @@ fun LiquidApp() {
         NavItem(Icons.Rounded.PlayArrow, "Кликер"),
         NavItem(Icons.Rounded.List, "Сценарии"),
         NavItem(Icons.Rounded.Visibility, "Наблюдение"),
-        NavItem(Icons.Rounded.Smartphone, "Окна"),
+        NavItem(Icons.Rounded.Layers, "Окна"),
         NavItem(Icons.Rounded.Person, "Имена"),
         NavItem(Icons.Rounded.Settings, "Ещё")
     )
