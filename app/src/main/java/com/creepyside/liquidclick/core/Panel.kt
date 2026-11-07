@@ -413,44 +413,6 @@ object Panel {
             setPadding(0, dp(4), 0, 0)
         })
 
-        // --- Окна ---
-        title("Два окна")
-        card.addView(TextView(service).apply {
-            text = Windows.label(service, Repo.leftPkg) + "  |  " + Windows.label(service, Repo.rightPkg)
-            setTextColor(0xFF7DF9FF.toInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-            setPadding(0, dp(2), 0, dp(2))
-        })
-        row(
-            action("Открыть оба") {
-                Windows.openPair(service, Repo.leftPkg, Repo.rightPkg)
-            },
-            action("Свернуть") {
-                A11y.instance?.pressHome()
-            }
-        )
-        row(
-            action(if (Engine.running) "■ Стоп" else "▶ Цикл окон", accent = !Engine.running) {
-                if (Engine.running) {
-                    Engine.stopScenario()
-                } else {
-                    Engine.runPair(
-                        ctx = service,
-                        leftPkg = Repo.leftPkg,
-                        rightPkg = Repo.rightPkg,
-                        leftScenario = Repo.findScenario(Repo.leftScenarioId),
-                        rightScenario = Repo.findScenario(Repo.rightScenarioId),
-                        loops = Repo.pairLoops,
-                        forever = Repo.pairForever,
-                        collapseEachLoop = Repo.pairCollapse
-                    )
-                }
-            },
-            action("Открыть заново") {
-                Windows.reopenPair(service, Repo.leftPkg, Repo.rightPkg)
-            }
-        )
-
         // --- Панель ---
         title("Панель")
         row(

@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.creepyside.liquidclick.core.Bubbles
-import com.creepyside.liquidclick.core.Windows
+import com.creepyside.liquidclick.core.Apps
 import com.creepyside.liquidclick.core.Engine
 import com.creepyside.liquidclick.core.Picker
 import com.creepyside.liquidclick.data.Repo
@@ -649,7 +649,7 @@ private fun StepEditorDialog(
 private fun AppPickDialog(onPick: (String) -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
-    val apps = remember { Windows.apps(context) }
+    val apps = remember { Apps.list(context) }
     val filtered = remember(query) {
         if (query.isBlank()) apps else apps.filter {
             it.label.contains(query, true) || it.packageName.contains(query, true)

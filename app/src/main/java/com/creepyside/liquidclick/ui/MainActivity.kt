@@ -31,7 +31,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.List
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -144,7 +143,6 @@ fun LiquidApp() {
         NavItem(Icons.Rounded.PlayArrow, "Кликер"),
         NavItem(Icons.Rounded.List, "Сценарии"),
         NavItem(Icons.Rounded.Visibility, "Наблюдение"),
-        NavItem(Icons.Rounded.Layers, "Окна"),
         NavItem(Icons.Rounded.Person, "Имена"),
         NavItem(Icons.Rounded.Settings, "Ещё")
     )
@@ -162,8 +160,7 @@ fun LiquidApp() {
                     0 -> ClickerScreen()
                     1 -> ScenariosScreen()
                     2 -> WatchScreen()
-                    3 -> WindowsScreen()
-                    4 -> NamesScreen()
+                    3 -> NamesScreen()
                     else -> SettingsScreen()
                 }
             }

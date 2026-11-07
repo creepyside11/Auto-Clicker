@@ -43,8 +43,6 @@ object Engine {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
-    private var offsetX = 0
-    private var offsetY = 0
     private var watchJob: Job? = null
     private val lastFired = mutableMapOf<String, Long>()
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
@@ -119,8 +117,6 @@ object Engine {
         Repo.save()
         running = true
         runningName = scenario.name
-        offsetX = scenario.offsetX
-        offsetY = scenario.offsetY
         Bubbles.hideForRun()
         log("▶ " + scenario.name)
         job = scope.launch {
@@ -139,8 +135,6 @@ object Engine {
             } finally {
                 running = false
                 runningName = ""
-                offsetX = 0
-                offsetY = 0
                 Bubbles.restoreAfterRun()
                 log("■ " + scenario.name + " завершён")
             }
@@ -172,8 +166,6 @@ object Engine {
     }
 
     private suspend fun playOnce(ctx: Context, scenario: Scenario): Boolean {
-        offsetX = scenario.offsetX
-        offsetY = scenario.offsetY
         for (step in scenario.steps) {
             if (!currentCoroutineContext().isActive) return false
             if (!exec(ctx, step)) return false
@@ -189,27 +181,23 @@ object Engine {
         }
         when (step.type) {
             StepType.TAP -> {
-                service!!.tap((step.x + offsetX).toFloat(), (step.y + offsetY).toFloat())
-                log("• тап " + (step.x + offsetX) + ", " + (step.y + offsetY))
+                service!!.tap(step.x.toFloat(), step.y.toFloat())
+                log("• тап " + step.x + ", " + step.y)
                 delay(90)
             }
 
             StepType.LONG -> {
-                service!!.longPress(
-                    (step.x + offsetX).toFloat(),
-                    (step.y + offsetY).toFloat(),
-                    step.durationMs
-                )
+                service!!.longPress(step.x.toFloat(), step.y.toFloat(), step.durationMs)
                 log("• зажатие " + step.durationMs + " мс")
                 delay(90)
             }
 
             StepType.SWIPE -> {
                 service!!.swipe(
-                    (step.x + offsetX).toFloat(),
-                    (step.y + offsetY).toFloat(),
-                    (step.x2 + offsetX).toFloat(),
-                    (step.y2 + offsetY).toFloat(),
+                    step.x.toFloat(),
+                    step.y.toFloat(),
+                    step.x2.toFloat(),
+                    step.y2.toFloat(),
                     step.durationMs
                 )
                 log("• свайп " + step.x + "," + step.y + " → " + step.x2 + "," + step.y2)
@@ -218,7 +206,7 @@ object Engine {
 
             StepType.TEXT -> {
                 if (step.x > 0 && step.y > 0) {
-                    service!!.tap((step.x + offsetX).toFloat(), (step.y + offsetY).toFloat())
+                    service!!.tap(step.x.toFloat(), step.y.toFloat())
                     delay(380)
                 }
                 val text = resolveText(step.text)
@@ -249,7 +237,7 @@ object Engine {
                 if (pkg.isEmpty()) {
                     log("✖ не указан пакет приложения")
                 } else {
-                    val ok = launchPackage(ctx, pkg, offsetX, offsetY, step.x, step.y, step.x2, step.y2)
+                    val ok = launchPackage(ctx, pkg)
                     log(if (ok) "• открыто " + pkg else "✖ не удалось открыть " + pkg)
                     delay(step.waitMs.coerceAtLeast(200))
                 }
@@ -261,9 +249,7 @@ object Engine {
     }
 
     private suspend fun check(ctx: Context, step: Step): Boolean {
-        val region = step.region?.let { r ->
-            Region(r.left + offsetX, r.top + offsetY, r.right + offsetX, r.bottom + offsetY)
-        }
+        val region = step.region
         if (region == null || !region.valid) {
             log("✖ область условия не задана")
             return !step.required
@@ -278,7 +264,7 @@ object Engine {
             if (matches(text, step.expected, step.matchMode)) {
                 log("✔ найдено «" + step.expected + "»")
                 if (step.tapOnMatch) {
-                    A11y.instance?.tap((step.x + offsetX).toFloat(), (step.y + offsetY).toFloat())
+                    A11y.instance?.tap(step.x.toFloat(), step.y.toFloat())
                     delay(140)
                 }
                 return true
@@ -365,86 +351,7 @@ object Engine {
         Repo.watchersEnabled = false
     }
 
-    /** Цикл «два окна»: открыть левое → сценарий → открыть правое → сценарий → свернуть. */
-    fun runPair(
-        ctx: Context,
-        leftPkg: String,
-        rightPkg: String,
-        leftScenario: Scenario?,
-        rightScenario: Scenario?,
-        loops: Int = 1,
-        forever: Boolean = false,
-        collapseEachLoop: Boolean = true
-    ) {
-        stopScenario()
-        running = true
-        runningName = "Два окна"
-        log("▶ Два окна: " + leftPkg.substringAfterLast('.') + " | " + rightPkg.substringAfterLast('.'))
-        job = scope.launch {
-            val leftBounds = Windows.boundsFor(Windows.LEFT)
-            val rightBounds = Windows.boundsFor(Windows.RIGHT)
-            var loop = 0
-            try {
-                while (isActive) {
-                    loop++
-                    log("· круг " + loop)
-
-                    Windows.open(ctx, leftPkg, Windows.LEFT)
-                    delay(1200)
-                    leftScenario?.let {
-                        it.offsetX = leftBounds.left
-                        it.offsetY = leftBounds.top
-                        it.offsetW = leftBounds.width()
-                        it.offsetH = leftBounds.height()
-                        if (!playOnce(ctx, it)) log("✖ левый сценарий прерван")
-                    }
-
-                    Windows.open(ctx, rightPkg, Windows.RIGHT)
-                    delay(1200)
-                    rightScenario?.let {
-                        it.offsetX = rightBounds.left
-                        it.offsetY = rightBounds.top
-                        it.offsetW = rightBounds.width()
-                        it.offsetH = rightBounds.height()
-                        if (!playOnce(ctx, it)) log("✖ правый сценарий прерван")
-                    }
-
-                    if (collapseEachLoop) {
-                        A11y.instance?.pressHome()
-                        log("· свернул оба")
-                        delay(700)
-                    }
-                    if (!forever && loop >= loops.coerceAtLeast(1)) break
-                    delay(400)
-                }
-            } catch (e: CancellationException) {
-                // остановлено
-            } catch (e: Throwable) {
-                log("✖ " + (e.message ?: "ошибка"))
-            } finally {
-                running = false
-                runningName = ""
-                offsetX = 0
-                offsetY = 0
-                log("■ Два окна: стоп")
-            }
-        }
-    }
-
-    fun launchPackage(
-        ctx: Context,
-        pkg: String,
-        ox: Int = 0,
-        oy: Int = 0,
-        x: Int = 0,
-        y: Int = 0,
-        x2: Int = 0,
-        y2: Int = 0
-    ): Boolean {
-        val width = if (x2 > x) x2 - x else 0
-        val height = if (y2 > y) y2 - y else 0
-        return Windows.openInBounds(ctx, pkg, ox, oy, width, height)
-    }
+    fun launchPackage(ctx: Context, pkg: String): Boolean = Apps.open(ctx, pkg)
 
     suspend fun readRegion(region: Region): String {
         val full = CaptureService.capture() ?: return ""

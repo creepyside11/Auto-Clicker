@@ -92,16 +92,8 @@ data class Scenario(
     var steps: MutableList<Step> = mutableListOf(),
     var loops: Int = 1,
     var forever: Boolean = false,
-    var delayBetweenLoopsMs: Long = 300L,
-    // Смещение окна: сценарий задан в координатах окна, движок прибавляет это смещение.
-    var offsetX: Int = 0,
-    var offsetY: Int = 0,
-    var offsetW: Int = 0,
-    var offsetH: Int = 0
-) {
-    fun shiftedX(x: Int): Int = x + offsetX
-    fun shiftedY(y: Int): Int = y + offsetY
-}
+    var delayBetweenLoopsMs: Long = 300L
+)
 
 data class Watcher(
     var id: String = UUID.randomUUID().toString(),
