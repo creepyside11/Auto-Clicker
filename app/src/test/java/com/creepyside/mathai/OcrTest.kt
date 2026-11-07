@@ -5,34 +5,47 @@ import com.creepyside.mathai.engine.Gray
 import com.creepyside.mathai.engine.Pipeline
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.DataInputStream
 import java.io.File
-import javax.imageio.ImageIO
+import java.util.Locale
 
-/** Прогоняет пайплайн по синтетическим картинкам с известными ответами. */
+/**
+ * Прогоняет пайплайн по синтетическим картинкам с известными ответами.
+ * Картинки лежат в src/test/resources/lines/lines.bin (свой формат,
+ * чтобы не зависеть от javax.imageio в Android unit-тестах).
+ */
 class OcrTest {
 
     private fun moduleDir(): File {
-        var d = File(System.getProperty("user.dir") ?: ".")
+        val d = File(System.getProperty("user.dir") ?: ".")
         if (File(d, "src/main/assets").exists()) return d
         if (File(d, "app/src/main/assets").exists()) return File(d, "app")
         return d
     }
 
-    private fun loadGray(file: File): Gray {
-        val img = ImageIO.read(file)
-        val w = img.width
-        val h = img.height
-        val data = FloatArray(w * h)
-        for (y in 0 until h) {
-            for (x in 0 until w) {
-                val rgb = img.getRGB(x, y)
-                val r = (rgb shr 16) and 0xFF
-                val g = (rgb shr 8) and 0xFF
-                val b = rgb and 0xFF
-                data[y * w + x] = (0.299f * r + 0.587f * g + 0.114f * b) / 255f
+    private class Case(val expr: String, val gray: Gray)
+
+    private fun readCases(file: File): List<Case> {
+        val out = ArrayList<Case>()
+        DataInputStream(file.inputStream().buffered()).use { inp ->
+            val magic = ByteArray(4)
+            inp.readFully(magic)
+            require(String(magic) == "MLN1") { "плохой файл lines.bin" }
+            val count = inp.readInt()
+            for (k in 0 until count) {
+                val nlen = inp.readInt()
+                val name = ByteArray(nlen)
+                inp.readFully(name)
+                val w = inp.readInt()
+                val h = inp.readInt()
+                val data = ByteArray(w * h)
+                inp.readFully(data)
+                val floats = FloatArray(w * h)
+                for (i in floats.indices) floats[i] = (data[i].toInt() and 255) / 255f
+                out.add(Case(String(name, Charsets.UTF_8), Gray(w, h, floats)))
             }
         }
-        return Gray(w, h, data)
+        return out
     }
 
     @Test
@@ -43,37 +56,39 @@ class OcrTest {
             println("model.bin отсутствует — тест пропущен")
             return
         }
-        val clf = Classifier(model.readBytes())
-        val linesDir = File(dir, "src/test/resources/lines")
-        val labels = File(linesDir, "labels.tsv")
-        if (!labels.exists()) {
-            println("labels.tsv отсутствует — тест пропущен")
+        val linesFile = File(dir, "src/test/resources/lines/lines.bin")
+        if (!linesFile.exists()) {
+            println("lines.bin отсутствует — тест пропущен")
             return
         }
-        var total = 0
+        val clf = Classifier(model.readBytes())
+        val cases = readCases(linesFile)
         var exact = 0
+        var valueOk = 0
         val bad = ArrayList<String>()
-        labels.forEachLine { line ->
-            if (line.isBlank()) return@forEachLine
-            val parts = line.split('\t')
-            if (parts.size < 2) return@forEachLine
-            val file = File(linesDir, parts[0])
-            if (!file.exists()) return@forEachLine
-            val expected = parts[1].replace(" ", "")
-            val gray = loadGray(file)
-            val res = Pipeline.recognize(gray, clf)
+        for (c in cases) {
+            val res = Pipeline.recognize(c.gray, clf)
             val got = res.joinToString(" ") { it.text }.replace(" ", "")
-            total++
-            if (got == expected) {
-                exact++
-            } else {
-                if (bad.size < 12) bad.add("${parts[0]}: ожидали [$expected], получили [$got]")
+            val expected = c.expr.replace(" ", "")
+            if (got == expected) exact++ else if (bad.size < 15) bad.add("ожидали [$expected], получили [$got]")
+            val okVal = try {
+                val a = com.creepyside.mathai.engine.solve(expected)
+                val b = com.creepyside.mathai.engine.solve(got)
+                if (a.mode != b.mode) false
+                else if (a.mode == "expression") Math.abs(a.valueDec!!.toDouble() - b.valueDec!!.toDouble()) < 1e-6
+                else a.roots == b.roots
+            } catch (t: Throwable) {
+                false
             }
+            if (okVal) valueOk++
         }
-        val acc = exact.toFloat() / total
-        println("OCR: $exact/$total = " + String.format(java.util.Locale.US, "%.1f%%", acc * 100))
+        val acc = exact.toFloat() / cases.size
+        val accVal = valueOk.toFloat() / cases.size
+        println("OCR строка: $exact/${cases.size} = " + String.format(Locale.US, "%.1f%%", acc * 100))
+        println("OCR значение: $valueOk/${cases.size} = " + String.format(Locale.US, "%.1f%%", accVal * 100))
         for (b in bad) println("  " + b)
-        assertTrue("нет тестовых картинок", total >= 10)
+        assertTrue("нет тестовых картинок", cases.size >= 10)
         assertTrue("точность распознавания слишком низкая: $acc", acc >= 0.50f)
+        assertTrue("точность по значению слишком низкая: $accVal", accVal >= 0.45f)
     }
 }
