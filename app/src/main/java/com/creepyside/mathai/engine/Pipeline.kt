@@ -516,11 +516,11 @@ object Pipeline {
         return sb.toString()
     }
 
-    private class Tok(val x: Int, val text: String)
+    private class PTok(val x: Int, val text: String)
 
     fun assemble(glyphs: List<Glyph>, bars: List<Comp>, ref: Float, lineCy: Float): String {
         if (glyphs.isEmpty() && bars.isEmpty()) return ""
-        val tokens = ArrayList<Tok>()
+        val tokens = ArrayList<PTok>()
         val usedBars = HashSet<Int>()
         val usedGlyphs = HashSet<Int>()
 
@@ -542,7 +542,7 @@ object Pipeline {
                 }
             }
             val inner = assemble(rad, emptyList(), ref, lineCy)
-            tokens.add(Tok(g.box.x0, "sqrt(" + inner + ")"))
+            tokens.add(PTok(g.box.x0, "sqrt(" + inner + ")"))
         }
 
         // 2) корень с отдельной чертой
@@ -573,7 +573,7 @@ object Pipeline {
                 }
             }
             val inner = assemble(rad, emptyList(), ref, lineCy)
-            tokens.add(Tok(g.box.x0, "sqrt(" + inner + ")"))
+            tokens.add(PTok(g.box.x0, "sqrt(" + inner + ")"))
         }
 
         // 3) дроби
@@ -594,7 +594,7 @@ object Pipeline {
             for (g in den) usedGlyphs.add(glyphs.indexOf(g))
             val ns = assemble(num, emptyList(), ref, lineCy)
             val ds = assemble(den, emptyList(), ref, lineCy)
-            if (ns.isNotEmpty() && ds.isNotEmpty()) tokens.add(Tok(b.x0, "(" + ns + ")/(" + ds + ")"))
+            if (ns.isNotEmpty() && ds.isNotEmpty()) tokens.add(PTok(b.x0, "(" + ns + ")/(" + ds + ")"))
         }
 
         // 4) остальные глифы + надстрочники (степени)
@@ -618,10 +618,10 @@ object Pipeline {
                 var clsList = sup.map { Classes.token(it.cls) }.toMutableList()
                 if (clsList.isNotEmpty() && clsList[0] == "^") clsList = clsList.drop(1).toMutableList()
                 val inner = joinTokens(clsList)
-                if (inner.isNotEmpty()) tokens.add(Tok(sup[0].box.x0, "^(" + inner + ")"))
+                if (inner.isNotEmpty()) tokens.add(PTok(sup[0].box.x0, "^(" + inner + ")"))
                 continue
             }
-            tokens.add(Tok(g.box.x0, Classes.token(g.cls)))
+            tokens.add(PTok(g.box.x0, Classes.token(g.cls)))
             base = g
             i++
         }
@@ -629,7 +629,7 @@ object Pipeline {
         // неиспользованные черты — это минусы
         for (bi in bars.indices) {
             if (bi in usedBars) continue
-            tokens.add(Tok(bars[bi].x0, "-"))
+            tokens.add(PTok(bars[bi].x0, "-"))
         }
 
         tokens.sortBy { it.x }

@@ -94,9 +94,9 @@ class MainActivity : ComponentActivity() {
         handleShare(intent)
     }
 
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent != null) handleShare(intent)
+        handleShare(intent)
     }
 
     private fun handleShare(intent: Intent?) {

@@ -469,13 +469,13 @@ fun solve(expr: String, env: Map<String, Num>? = null): SolveResult {
             expression = e,
         )
     }
-    val (val0, steps, final) = solveSteps(e, env)
+    val (val0, steps, fin) = solveSteps(e, env)
     return SolveResult(
         mode = "expression",
         value = Nums.fmt(val0),
         valueDec = String.format(java.util.Locale.US, "%.10g", val0.asDouble()),
         steps = steps,
         expression = e,
-        simplified = render(final),
+        simplified = render(fin),
     )
 }
