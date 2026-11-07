@@ -663,8 +663,18 @@ object Pipeline {
             for (j in den) usedGlyphs.add(j)
             for (j in num) { val v = vin[j]; if (v != null) usedBars.add(v) }
             for (j in den) { val v = vin[j]; if (v != null) usedBars.add(v) }
-            val nb = num.filter { vin.containsKey(it) }.map { bars[vin[it]!!] }
-            val db = den.filter { vin.containsKey(it) }.map { bars[vin[it]!!] }
+            val nb = num.filter { vin.containsKey(it) }.map { bars[vin[it]!!] }.toMutableList()
+            val db = den.filter { vin.containsKey(it) }.map { bars[vin[it]!!] }.toMutableList()
+            // вложенные дроби: черты внутри числителя/знаменателя уходят в рекурсию
+            for (bj in bars.indices) {
+                if (bj == bi || bj in usedBars) continue
+                val b2 = bars[bj]
+                if (b2.x1 < b.x0 || b2.x0 > b.x1) continue
+                if (b2.y1 < b.y0) nb.add(b2) else if (b2.y0 > b.y1) db.add(b2)
+            }
+            for (b2 in nb + db) {
+                for (bj in bars.indices) if (bars[bj] === b2) usedBars.add(bj)
+            }
             val ns = assemble(num.map { glyphs[it] }, nb, ref, lineCy)
             val ds = assemble(den.map { glyphs[it] }, db, ref, lineCy)
             if (ns.isNotEmpty() && ds.isNotEmpty()) tokens.add(PTok(b.x0, wrapExpr(ns) + "/" + wrapExpr(ds)))
