@@ -43,6 +43,10 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
         unitTests.all {
+            // веса и тестовые картинки лежат в assets — они должны влиять на тест
+            it.inputs.files(fileTree("src/main/assets"))
+            it.outputs.upToDateWhen { false }
+            it.outputs.cacheIf { false }
             it.testLogging {
                 events("passed", "failed", "skipped")
                 showStandardStreams = true
