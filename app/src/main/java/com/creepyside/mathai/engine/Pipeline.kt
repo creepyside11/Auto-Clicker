@@ -30,6 +30,12 @@ object Pipeline {
 
     const val MAX_SIDE = 1400
     const val DOT_MIN_H = 0.075f
+
+    /** Оставляет глиф или тонкую длинную черту: фильтр по высоте убивает дроби. */
+    fun keepComp(c: Comp, ref: Float): Boolean {
+        if (c.h >= max(2f, DOT_MIN_H * ref) && c.area >= max(5, (0.004f * ref * ref).toInt())) return true
+        return c.h >= 1 && c.w >= 0.45f * ref && c.area >= max(4f, 0.5f * c.w * c.h)
+    }
     const val BAR_W_RATIO = 0.72f
     const val BAR_H_RATIO = 0.30f
     const val MERGE_XGAP = 0.11f
@@ -157,7 +163,12 @@ object Pipeline {
         val sa = sin(a)
         val cx = (w - 1) * 0.5
         val cy = (h - 1) * 0.5
+        // фон за пределами кадра — цвет бумаги, иначе бинаризация
+        // посчитает чёрные углы чернилами
+        val sorted = gray.data.sortedArray()
+        val fill = sorted[sorted.size / 2]
         val out = FloatArray(w * h)
+        java.util.Arrays.fill(out, fill)
         for (y in 0 until h) {
             val ys = y - cy
             for (x in 0 until w) {
@@ -618,7 +629,10 @@ object Pipeline {
                 var clsList = sup.map { Classes.token(it.cls) }.toMutableList()
                 if (clsList.isNotEmpty() && clsList[0] == "^") clsList = clsList.drop(1).toMutableList()
                 val inner = joinTokens(clsList)
-                if (inner.isNotEmpty()) tokens.add(PTok(sup[0].box.x0, "^(" + inner + ")"))
+                if (inner.isNotEmpty()) {
+                    val single = inner.length == 1 || inner.all { it.isDigit() }
+                    tokens.add(PTok(sup[0].box.x0, if (single) "^" + inner else "^(" + inner + ")"))
+                }
                 continue
             }
             tokens.add(PTok(g.box.x0, Classes.token(g.cls)))
@@ -670,7 +684,7 @@ object Pipeline {
             val tall = comps.filter { it.h >= 0.18f * lineH }.map { it.h }.sorted()
             var ref = if (tall.isNotEmpty()) tall[tall.size / 2].toFloat() else lineH.toFloat()
             if (ref < 8f) ref = 8f
-            comps = comps.filter { it.h >= max(2f, DOT_MIN_H * ref) && it.area >= 3 }
+            comps = comps.filter { keepComp(it, ref) }
             if (comps.isEmpty()) continue
             val grouped = groupGlyphs(comps, ref)
             val boxes = grouped.first
