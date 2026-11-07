@@ -138,6 +138,30 @@ fun SettingsScreen() {
 
         item {
             GlassCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Сохранение имён из сценариев", color = TextHi, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Сгенерированные ники и фамилии пишутся в «Имена → Сохранённые» (время МСК)",
+                            color = TextLo,
+                            fontSize = 11.sp
+                        )
+                    }
+                    GlassChip(if (Repo.saveGenerated) "вкл" else "выкл", Repo.saveGenerated) {
+                        Repo.saveGenerated = !Repo.saveGenerated
+                        Repo.touch()
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Сохранено: " + Repo.saved.size, color = TextLo, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    GlassChip("Очистить список", false) { Repo.clearSaved() }
+                }
+            }
+        }
+
+        item {
+            GlassCard {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

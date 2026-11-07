@@ -234,6 +234,51 @@ object Names {
         return result.toList()
     }
 
+    // ---------- Подстановки в сценариях ----------
+
+    /** Все поддерживаемые токены подстановки. */
+    val tokens: List<Pair<String, String>> = listOf(
+        "{имя}" to "имя",
+        "{фамилия}" to "фамилия",
+        "{ник}" to "ник",
+        "{name}" to "имя",
+        "{surname}" to "фамилия",
+        "{nick}" to "ник",
+        "{полное}" to "имя и фамилия"
+    )
+
+    fun hasTokens(template: String): Boolean =
+        tokens.any { (token, _) -> template.contains(token, ignoreCase = true) }
+
+    /** Одна персона на шаг: все токены в тексте относятся к одному человеку. */
+    fun onePerson(
+        gender: String = "any",
+        regions: List<String> = emptyList(),
+        custom: String = "",
+        appendCustom: Boolean = false
+    ): Generated? = generate(
+        selected = regions,
+        gender = gender,
+        count = 1,
+        mixRegions = true,
+        custom = custom,
+        appendCustom = appendCustom
+    ).firstOrNull()
+
+    fun applyTokens(template: String, person: Generated): String {
+        var result = template
+        tokens.forEach { (token, kind) ->
+            val value = when (kind) {
+                "имя" -> person.first
+                "фамилия" -> person.last
+                "ник" -> person.nick
+                else -> person.full
+            }
+            result = result.replace(token, value, ignoreCase = true)
+        }
+        return result
+    }
+
     /** Ручной текст: строки, разделённые переводом строки, точкой с запятой или запятой. */
     fun manualLines(raw: String): List<String> =
         raw.split('\n', ';', ',')

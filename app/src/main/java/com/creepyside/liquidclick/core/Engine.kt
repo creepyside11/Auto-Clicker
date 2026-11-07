@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.creepyside.liquidclick.data.Repo
 import com.creepyside.liquidclick.model.MatchMode
+import com.creepyside.liquidclick.names.Names
 import com.creepyside.liquidclick.model.Region
 import com.creepyside.liquidclick.model.Scenario
 import com.creepyside.liquidclick.model.Step
@@ -146,6 +147,30 @@ object Engine {
         }
     }
 
+    /**
+     * Подставляет {имя}/{фамилия}/{ник} в текст шага и сохраняет полученную персону в приложении.
+     */
+    private fun resolveText(template: String): String {
+        if (!Names.hasTokens(template)) return template
+        val person = Names.onePerson(
+            gender = Repo.nameGender,
+            regions = Repo.nameRegions,
+            custom = Repo.nameCustom,
+            appendCustom = Repo.nameAppendCustom
+        ) ?: return template
+        Repo.addSaved(
+            first = person.first,
+            last = person.last,
+            nick = person.nick,
+            region = person.region,
+            source = "сценарий",
+            scenarioName = runningName
+        )
+        val text = Names.applyTokens(template, person)
+        log("✎ " + person.full() + " · " + person.nick + " → сохранено")
+        return text
+    }
+
     private suspend fun playOnce(ctx: Context, scenario: Scenario): Boolean {
         offsetX = scenario.offsetX
         offsetY = scenario.offsetY
@@ -196,7 +221,8 @@ object Engine {
                     service!!.tap((step.x + offsetX).toFloat(), (step.y + offsetY).toFloat())
                     delay(380)
                 }
-                val ok = service!!.typeText(step.text)
+                val text = resolveText(step.text)
+                val ok = service!!.typeText(text)
                 log(if (ok) "• текст вставлен" else "✖ поле ввода не найдено")
                 delay(150)
             }

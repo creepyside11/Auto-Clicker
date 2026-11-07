@@ -476,6 +476,21 @@ private fun StepEditorDialog(
                         }
 
                         StepType.TEXT -> {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf("{имя}", "{фамилия}", "{ник}").forEach { token ->
+                                    GlassChip(token, false, Modifier.weight(1f)) {
+                                        draft = draft.copy(text = draft.text + token)
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Токены подставляются при запуске: имя, фамилия и ник генерируются заново " +
+                                    "на каждый шаг и сохраняются в приложении (раздел «Имена → Сохранённые», время МСК).",
+                                color = TextLo,
+                                fontSize = 11.sp
+                            )
+                            Spacer(Modifier.height(6.dp))
                             GlassField(
                                 value = draft.text,
                                 onValueChange = { draft = draft.copy(text = it) },

@@ -131,4 +131,18 @@ data class ClickConfig(
     var jitter: Int = 0
 )
 
+/** Сохранённые имя/фамилия/ник, полученные при работе сценария или генератора. */
+data class SavedPerson(
+    var id: String = UUID.randomUUID().toString(),
+    var first: String = "",
+    var last: String = "",
+    var nick: String = "",
+    var region: String = "",
+    var source: String = "",
+    var scenarioName: String = "",
+    var time: Long = System.currentTimeMillis()
+) {
+    fun full(): String = (first + " " + last).trim()
+}
+
 data class ScreenSize(var w: Int = 1080, var h: Int = 1920)

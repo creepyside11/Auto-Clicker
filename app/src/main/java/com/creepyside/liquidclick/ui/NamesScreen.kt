@@ -36,23 +36,28 @@ fun NamesScreen() {
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            GlassChip("Имена · English", mode == 0, Modifier.weight(1f)) { mode = 0 }
+            GlassChip("Имена", mode == 0, Modifier.weight(1f)) { mode = 0 }
             GlassChip("Свой текст", mode == 1, Modifier.weight(1f)) { mode = 1 }
+            GlassChip("Сохранённые", mode == 2, Modifier.weight(1f)) { mode = 2 }
         }
-        if (mode == 0) NamesGenerator() else ManualText()
+        when (mode) {
+            0 -> NamesGenerator()
+            1 -> ManualText()
+            else -> SavedScreen()
+        }
     }
 }
 
 @Composable
 private fun NamesGenerator() {
     val context = LocalContext.current
-    var selected by remember { mutableStateOf(Names.regions.toSet()) }
-    var gender by remember { mutableStateOf("any") }
     var count by remember { mutableStateOf(12f) }
-    var mix by remember { mutableStateOf(true) }
-    var custom by remember { mutableStateOf("") }
-    var appendCustom by remember { mutableStateOf(false) }
     var results by remember { mutableStateOf(listOf<Generated>()) }
+    val selected = if (Repo.nameRegions.isEmpty()) Names.regions.toSet() else Repo.nameRegions.toSet()
+    val gender = Repo.nameGender
+    val mix = Repo.nameMix
+    val custom = Repo.nameCustom
+    val appendCustom = Repo.nameAppendCustom
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -72,7 +77,10 @@ private fun NamesGenerator() {
                     ) {
                         pair.forEach { region ->
                             GlassChip(region, selected.contains(region), Modifier.weight(1f)) {
-                                selected = if (selected.contains(region)) selected - region else selected + region
+                                val next = if (selected.contains(region)) selected - region else selected + region
+                                Repo.nameRegions.clear()
+                                Repo.nameRegions.addAll(next)
+                                Repo.touch()
                             }
                         }
                     }
@@ -81,9 +89,9 @@ private fun NamesGenerator() {
                 SectionTitle("Пол")
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GlassChip("Любой", gender == "any") { gender = "any" }
-                    GlassChip("Мужской", gender == "m") { gender = "m" }
-                    GlassChip("Женский", gender == "f") { gender = "f" }
+                    GlassChip("Любой", gender == "any") { Repo.nameGender = "any"; Repo.touch() }
+                    GlassChip("Мужской", gender == "m") { Repo.nameGender = "m"; Repo.touch() }
+                    GlassChip("Женский", gender == "f") { Repo.nameGender = "f"; Repo.touch() }
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -93,7 +101,7 @@ private fun NamesGenerator() {
                         fontSize = 12.sp,
                         modifier = Modifier.weight(1f)
                     )
-                    GlassChip(if (mix) "да" else "нет", mix) { mix = !mix }
+                    GlassChip(if (mix) "да" else "нет", mix) { Repo.nameMix = !mix; Repo.touch() }
                 }
                 SliderRow(
                     title = "Сколько сгенерировать",
@@ -111,7 +119,7 @@ private fun NamesGenerator() {
                 Spacer(Modifier.height(8.dp))
                 GlassField(
                     value = custom,
-                    onValueChange = { custom = it },
+                    onValueChange = { Repo.nameCustom = it; Repo.touch() },
                     label = "Своё слово / цифры",
                     placeholder = "например: pro, 228, x"
                 )
@@ -124,12 +132,14 @@ private fun NamesGenerator() {
                         modifier = Modifier.weight(1f)
                     )
                     GlassChip(if (appendCustom) "да" else "нет", appendCustom) {
-                        appendCustom = !appendCustom
+                        Repo.nameAppendCustom = !appendCustom
+                        Repo.touch()
                     }
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Имя и фамилия всегда только латиницей и без цифр. Ник — латиница имени и фамилии.",
+                    "Имя и фамилия всегда только латиницей и без цифр. Ник — латиница имени и фамилии. " +
+                        "В сценариях эти настройки применяются к подстановкам {имя}, {фамилия}, {ник}.",
                     color = TextLo,
                     fontSize = 11.sp
                 )
@@ -146,6 +156,15 @@ private fun NamesGenerator() {
                     custom = custom,
                     appendCustom = appendCustom
                 )
+                results.forEach { person ->
+                    Repo.addSaved(
+                        first = person.first,
+                        last = person.last,
+                        nick = person.nick,
+                        region = person.region,
+                        source = "генератор"
+                    )
+                }
             }
         }
 
@@ -303,6 +322,85 @@ private fun ManualText() {
                             modifier = Modifier.weight(1f)
                         )
                         GlassChip("Копировать", false) { copyToClipboard(context, line) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SavedScreen() {
+    val context = LocalContext.current
+    Repo.version
+    var query by remember { mutableStateOf("") }
+    val rows = if (query.isBlank()) Repo.saved else Repo.saved.filter {
+        it.first.contains(query, true) || it.last.contains(query, true) || it.nick.contains(query, true)
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item { ScreenHeader("Сохранённые", "Ники и фамилии из сценариев и генератора · время МСК") }
+
+        item {
+            GlassCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Сохранять при работе сценария", color = TextHi, fontSize = 14.sp)
+                        Text(
+                            "Каждая подстановка {имя} / {фамилия} / {ник} попадает в этот список",
+                            color = TextLo,
+                            fontSize = 11.sp
+                        )
+                    }
+                    GlassChip(if (Repo.saveGenerated) "вкл" else "выкл", Repo.saveGenerated) {
+                        Repo.saveGenerated = !Repo.saveGenerated
+                        Repo.touch()
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                GlassField(query, { query = it }, "Поиск", placeholder = "имя, фамилия или ник")
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlassChip("Всего: " + Repo.saved.size, false, Modifier.weight(1f)) {}
+                    GlassChip("Копировать всё", false, Modifier.weight(1f)) {
+                        copyToClipboard(context, Repo.savedText())
+                    }
+                    GlassChip("Очистить", false, Modifier.weight(1f)) { Repo.clearSaved() }
+                }
+            }
+        }
+
+        if (rows.isEmpty()) {
+            item { EmptyHint("Пока пусто. Запустите сценарий с шагом «Вставка текста», где есть {имя} или {фамилия}.") }
+        }
+
+        items(rows) { row ->
+            GlassCard(Modifier.fillMaxWidth(), corner = 18.dp, padding = 12.dp) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(row.full(), color = TextHi, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        if (row.nick.isNotBlank()) Text(row.nick, color = Cyan, fontSize = 12.sp)
+                        Text(
+                            Repo.savedTime(row) + " · " + row.source +
+                                if (row.scenarioName.isNotBlank()) " · " + row.scenarioName else "",
+                            color = TextLo,
+                            fontSize = 10.sp
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        GlassChip("Копировать", false) {
+                            copyToClipboard(context, listOf(row.first, row.last, row.nick)
+                                .filter { it.isNotBlank() }.joinToString(" "))
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        GlassChip("✕", false) {
+                            Repo.saved.removeAll { it.id == row.id }
+                            Repo.touch()
+                        }
                     }
                 }
             }
