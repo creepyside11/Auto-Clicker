@@ -42,6 +42,12 @@ android {
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
+        unitTests.all {
+            it.testLogging {
+                events("passed", "failed", "skipped")
+                showStandardStreams = true
+            }
+        }
     }
     lint {
         abortOnError = false
