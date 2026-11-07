@@ -260,7 +260,7 @@ object Pipeline {
                         gap++
                         yy++
                     }
-                    if (gap > 2 || yy >= h) break
+                    if (gap > 3 || yy >= h) break
                     y = yy
                 }
             }
@@ -268,15 +268,19 @@ object Pipeline {
             y = last + 1
         }
         if (bands.isEmpty()) return emptyList()
-        val heights = bands.map { it[1] - it[0] + 1 }.sorted()
-        val med = heights[heights.size / 2].toFloat()
+        val heights = bands.map { it[1] - it[0] + 1 }
+        // тонкие полосы (черта дроби, винкулум) не должны занижать медиану,
+        // иначе высокая конструкция не склеится обратно в одну строку
+        val maxH = heights.max()
+        val big = heights.filter { it >= 0.35f * maxH }.sorted()
+        val med = (if (big.isNotEmpty()) big[big.size / 2] else heights.sorted().let { it[it.size / 2] }).toFloat()
         val merged = ArrayList<IntArray>()
         for (b in bands) {
             if (merged.isNotEmpty()) {
                 val prev = merged[merged.size - 1]
                 val gap = b[0] - prev[1] - 1
                 val combined = b[1] - prev[0] + 1
-                if (gap <= 0.45f * med && combined <= 4.0f * med) {
+                if (gap <= 0.60f * med && combined <= 4.5f * med) {
                     merged[merged.size - 1] = intArrayOf(prev[0], b[1])
                     continue
                 }
@@ -359,12 +363,53 @@ object Pipeline {
         return out
     }
 
-    fun isBar(c: Comp, ref: Float): Boolean {
-        if (c.w <= BAR_W_RATIO * ref || c.h > BAR_H_RATIO * ref) return false
-        return c.area >= 0.7 * c.w * c.h
+    /** Тонкий горизонтальный штрих: минус, черта дроби, винкулум, часть '='. */
+    fun isThin(c: Comp, ref: Float): Boolean {
+        return c.h <= 0.20f * ref && c.w >= 0.25f * ref && c.area >= max(3f, 0.45f * c.w * c.h)
     }
 
-    fun groupGlyphs(comps: List<Comp>, ref: Float): Pair<List<Comp>, List<Comp>> {
+    /** Черта дроби/винкулум: длинная и тонкая. Минус короче — он не черта. */
+    fun isBar(c: Comp, ref: Float): Boolean = isThin(c, ref) && c.w >= 0.70f * ref
+
+    /** Склеивает параллельные штрихи одинаковой длины в '=' и '÷'. */
+    fun mergeStrokes(comps: List<Comp>, ref: Float): List<Comp> {
+        val out = ArrayList(comps)
+        var changed = true
+        while (changed) {
+            changed = false
+            var i = 0
+            while (i < out.size && !changed) {
+                var j = i + 1
+                while (j < out.size) {
+                    val a = out[i]
+                    val b = out[j]
+                    if (!(isThin(a, ref) && isThin(b, ref))) {
+                        j++; continue
+                    }
+                    val ov = min(a.x1, b.x1) - max(a.x0, b.x0) + 1
+                    if (ov < 0.75f * min(a.w, b.w)) {
+                        j++; continue
+                    }
+                    val gap = max(0, max(a.y0, b.y0) - min(a.y1, b.y1))
+                    if (gap > 0.45f * ref) {
+                        j++; continue
+                    }
+                    out[i] = Comp(
+                        min(a.x0, b.x0), max(a.x1, b.x1),
+                        min(a.y0, b.y0), max(a.y1, b.y1), a.area + b.area
+                    )
+                    out.removeAt(j)
+                    changed = true
+                    break
+                }
+                i++
+            }
+        }
+        return out
+    }
+
+    fun groupGlyphs(compsIn: List<Comp>, ref: Float): Pair<List<Comp>, List<Comp>> {
+        val comps = mergeStrokes(compsIn, ref)
         val items = ArrayList<Comp>()
         val bars = ArrayList<Comp>()
         for (c in comps) {
@@ -527,7 +572,49 @@ object Pipeline {
         return sb.toString()
     }
 
+    private val ROOT_SIGNS = setOf("√", "∛")
+
+    private fun rootFn(cls: String): String = if (cls == "∛") "cbrt" else "sqrt"
+
     private class PTok(val x: Int, val text: String)
+
+    /** Скобки только там, где без них изменится смысл. */
+    private fun wrapExpr(s: String): String =
+        if (s.isNotEmpty() && s.none { it == '+' || it == '-' || it == '*' || it == '/' || it == '^' }) s
+        else "(" + s + ")"
+
+    private fun isSup(g: Glyph, base: Glyph): Boolean {
+        if (g.box.h > 0.95f * base.box.h) return false
+        if (g.box.cy >= base.box.cy - 0.15f * base.box.h) return false
+        return g.box.y1 <= base.box.y0 + 0.55f * base.box.h
+    }
+
+    /** Сопоставляет каждому знаку корня его черту (винкулум). */
+    private fun pickVinculums(glyphs: List<Glyph>, bars: List<Comp>, ref: Float): HashMap<Int, Int> {
+        val vin = HashMap<Int, Int>()
+        val taken = HashSet<Int>()
+        for (gi in glyphs.indices) {
+            val g = glyphs[gi]
+            if (g.cls !in ROOT_SIGNS) continue
+            var best = -1
+            var bestD = 0f
+            for (bi in bars.indices) {
+                if (bi in taken) continue
+                val b = bars[bi]
+                if (b.x0 - g.box.x1 > 0.45f * ref || b.x1 < g.box.x1 || b.y0 > g.box.cy) continue
+                val d = abs(b.y0 - g.box.y0).toFloat()
+                if (best < 0 || d < bestD) {
+                    best = bi
+                    bestD = d
+                }
+            }
+            if (best >= 0) {
+                vin[gi] = best
+                taken.add(best)
+            }
+        }
+        return vin
+    }
 
     fun assemble(glyphs: List<Glyph>, bars: List<Comp>, ref: Float, lineCy: Float): String {
         if (glyphs.isEmpty() && bars.isEmpty()) return ""
@@ -535,10 +622,10 @@ object Pipeline {
         val usedBars = HashSet<Int>()
         val usedGlyphs = HashSet<Int>()
 
-        // 1) корень, у которого черта слилась со знаком (широкий бокс)
+        // 0) корень, у которого черта слилась со знаком (широкий бокс)
         for (gi in glyphs.indices) {
             val g = glyphs[gi]
-            if (g.cls != "√" || gi in usedGlyphs) continue
+            if (g.cls !in ROOT_SIGNS || gi in usedGlyphs) continue
             if (g.box.w <= 1.15f * ref) continue
             usedGlyphs.add(gi)
             val rad = ArrayList<Glyph>()
@@ -553,62 +640,59 @@ object Pipeline {
                 }
             }
             val inner = assemble(rad, emptyList(), ref, lineCy)
-            tokens.add(PTok(g.box.x0, "sqrt(" + inner + ")"))
+            tokens.add(PTok(g.box.x0, rootFn(g.cls) + "(" + inner + ")"))
         }
 
-        // 2) корень с отдельной чертой
-        for (gi in glyphs.indices) {
-            val g = glyphs[gi]
-            if (g.cls != "√" || gi in usedGlyphs) continue
-            var best = -1
-            for (bi in bars.indices) {
-                if (bi in usedBars) continue
-                val b = bars[bi]
-                if (b.x0 - g.box.x1 <= 0.40f * ref && abs(b.y0 - g.box.y0) <= 0.45f * ref) {
-                    if (best < 0 || b.w > bars[best].w) best = bi
-                }
+        val vin = pickVinculums(glyphs, bars, ref)
+
+        // 1) дроби (черты, не занятые корнями)
+        for (bi in bars.indices) {
+            if (bi in usedBars || bi in vin.values) continue
+            val b = bars[bi]
+            val num = ArrayList<Int>()
+            val den = ArrayList<Int>()
+            for (j in glyphs.indices) {
+                if (j in usedGlyphs) continue
+                val hbox = glyphs[j].box
+                if (hbox.cx < b.x0 - 0.14f * ref || hbox.cx > b.x1 + 0.14f * ref) continue
+                if (hbox.cy < b.y0) num.add(j) else if (hbox.cy > b.y1) den.add(j)
             }
-            if (best < 0) continue
-            val bar = bars[best]
-            usedBars.add(best)
+            if (num.isEmpty() || den.isEmpty()) continue
+            usedBars.add(bi)
+            for (j in num) usedGlyphs.add(j)
+            for (j in den) usedGlyphs.add(j)
+            for (j in num) { val v = vin[j]; if (v != null) usedBars.add(v) }
+            for (j in den) { val v = vin[j]; if (v != null) usedBars.add(v) }
+            val nb = num.filter { vin.containsKey(it) }.map { bars[vin[it]!!] }
+            val db = den.filter { vin.containsKey(it) }.map { bars[vin[it]!!] }
+            val ns = assemble(num.map { glyphs[it] }, nb, ref, lineCy)
+            val ds = assemble(den.map { glyphs[it] }, db, ref, lineCy)
+            if (ns.isNotEmpty() && ds.isNotEmpty()) tokens.add(PTok(b.x0, wrapExpr(ns) + "/" + wrapExpr(ds)))
+        }
+
+        // 2) корни со своей чертой
+        for ((gi, bi) in vin) {
+            if (gi in usedGlyphs || bi in usedBars) continue
+            val g = glyphs[gi]
+            val b = bars[bi]
+            usedBars.add(bi)
             usedGlyphs.add(gi)
             val rad = ArrayList<Glyph>()
             for (j in glyphs.indices) {
                 if (j in usedGlyphs) continue
                 val hbox = glyphs[j].box
-                if (hbox.cx >= bar.x0 - 0.12f * ref && hbox.cx <= bar.x1 + 0.12f * ref &&
-                    hbox.cy > bar.y0 - 0.15f * ref
+                if (hbox.cx >= b.x0 - 0.12f * ref && hbox.cx <= b.x1 + 0.12f * ref &&
+                    hbox.y0 <= b.y1 + 1.2f * ref && hbox.cy > b.y0 - 0.15f * ref
                 ) {
                     rad.add(glyphs[j])
                     usedGlyphs.add(j)
                 }
             }
             val inner = assemble(rad, emptyList(), ref, lineCy)
-            tokens.add(PTok(g.box.x0, "sqrt(" + inner + ")"))
+            tokens.add(PTok(g.box.x0, rootFn(g.cls) + "(" + inner + ")"))
         }
 
-        // 3) дроби
-        for (bi in bars.indices) {
-            if (bi in usedBars) continue
-            val b = bars[bi]
-            val num = ArrayList<Glyph>()
-            val den = ArrayList<Glyph>()
-            for (j in glyphs.indices) {
-                if (j in usedGlyphs) continue
-                val hbox = glyphs[j].box
-                if (hbox.cx < b.x0 - 0.14f * ref || hbox.cx > b.x1 + 0.14f * ref) continue
-                if (hbox.cy < b.y0) num.add(glyphs[j]) else if (hbox.cy > b.y1) den.add(glyphs[j])
-            }
-            if (num.isEmpty() || den.isEmpty()) continue
-            usedBars.add(bi)
-            for (g in num) usedGlyphs.add(glyphs.indexOf(g))
-            for (g in den) usedGlyphs.add(glyphs.indexOf(g))
-            val ns = assemble(num, emptyList(), ref, lineCy)
-            val ds = assemble(den, emptyList(), ref, lineCy)
-            if (ns.isNotEmpty() && ds.isNotEmpty()) tokens.add(PTok(b.x0, "(" + ns + ")/(" + ds + ")"))
-        }
-
-        // 4) остальные глифы + надстрочники (степени)
+        // 3) обычные глифы + надстрочники (степени)
         val rest = ArrayList<Int>()
         for (j in glyphs.indices) if (j !in usedGlyphs) rest.add(j)
         rest.sortBy { glyphs[it].box.x0 }
@@ -617,11 +701,11 @@ object Pipeline {
         while (i < rest.size) {
             val g = glyphs[rest[i]]
             val b = base
-            if (b != null && g.box.h <= 0.95f * b.box.h && g.box.cy < b.box.cy - 0.12f * b.box.h) {
+            if (b != null && isSup(g, b)) {
                 val sup = ArrayList<Glyph>()
                 while (i < rest.size) {
                     val g2 = glyphs[rest[i]]
-                    if (g2.box.h <= 0.95f * b.box.h && g2.box.cy < b.box.cy - 0.12f * b.box.h) {
+                    if (isSup(g2, b)) {
                         sup.add(g2)
                         i++
                     } else break
@@ -629,10 +713,7 @@ object Pipeline {
                 var clsList = sup.map { Classes.token(it.cls) }.toMutableList()
                 if (clsList.isNotEmpty() && clsList[0] == "^") clsList = clsList.drop(1).toMutableList()
                 val inner = joinTokens(clsList)
-                if (inner.isNotEmpty()) {
-                    val single = inner.length == 1 || inner.all { it.isDigit() }
-                    tokens.add(PTok(sup[0].box.x0, if (single) "^" + inner else "^(" + inner + ")"))
-                }
+                if (inner.isNotEmpty()) tokens.add(PTok(sup[0].box.x0, "^" + wrapExpr(inner)))
                 continue
             }
             tokens.add(PTok(g.box.x0, Classes.token(g.cls)))

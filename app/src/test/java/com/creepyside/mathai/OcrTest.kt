@@ -90,7 +90,7 @@ class OcrTest {
         println("OCR значение: $valueOk/${cases.size} = " + String.format(Locale.US, "%.1f%%", accVal * 100))
         for (b in bad) println("  " + b)
         assertTrue("нет тестовых картинок", cases.size >= 10)
-        assertTrue("точность распознавания слишком низкая: $acc", acc >= 0.35f)
-        assertTrue("точность по значению слишком низкая: $accVal", accVal >= 0.35f)
+        assertTrue("точность распознавания слишком низкая: $acc", acc >= 0.75f)
+        assertTrue("точность по значению слишком низкая: $accVal", accVal >= 0.75f)
     }
 }

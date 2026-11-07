@@ -212,18 +212,21 @@ def _raw_bands(mask, gap_tol=2):
 
 
 def find_lines(mask):
-    bands = _raw_bands(mask, gap_tol=2)
+    bands = _raw_bands(mask, gap_tol=3)
     if not bands:
         return []
     heights = [b - a + 1 for a, b in bands]
-    med = float(np.median(heights))
+    # тонкие полосы (черта дроби, винкулум) не должны занижать медиану,
+    # иначе высокая конструкция не склеится обратно в одну строку
+    big = [h for h in heights if h >= 0.35 * max(heights)]
+    med = float(np.median(big)) if big else float(np.median(heights))
     merged = []
     for a, b in bands:
         if merged:
             pa, pb = merged[-1]
             gap = a - pb - 1
             combined = b - pa + 1
-            if gap <= 0.45 * med and combined <= 4.0 * med:
+            if gap <= 0.60 * med and combined <= 4.5 * med:
                 merged[-1] = (pa, b)
                 continue
         merged.append((a, b))
@@ -292,23 +295,55 @@ def components(mask, y0, y1):
     return out
 
 
+def is_thin(c, ref):
+    """Тонкий горизонтальный штрих: минус, черта дроби, винкулум, часть '='."""
+    return (c.h <= 0.20 * ref and c.w >= 0.25 * ref and
+            c.area >= max(3.0, 0.45 * c.w * c.h))
+
+
 def keep_comp(c, ref):
-    """Оставляет глиф или тонкую длинную черту (её фильтр по высоте убивает)."""
+    """Оставляет глиф или тонкий штрих (фильтр по высоте убивал черты)."""
     if c.h >= max(2.0, 0.075 * ref) and c.area >= max(5, 0.004 * ref * ref):
         return True
-    return (c.h >= 1 and c.w >= 0.45 * ref and
-            c.area >= max(4.0, 0.5 * c.w * c.h))
+    return is_thin(c, ref)
 
 
 def is_bar(c, ref):
-    if c.w <= BAR_W_RATIO * ref or c.h > BAR_H_RATIO * ref:
-        return False
-    # черта сплошная, а не буква/цифра
-    return c.area >= 0.55 * c.w * c.h
+    """Черта дроби: длинная и тонкая. Минус короче — он не черта."""
+    return is_thin(c, ref) and c.w >= 0.70 * ref
+
+
+def merge_strokes(comps, ref):
+    """Склеивает пары/тройки тонких штрихов в '=' и '÷'."""
+    out = list(comps)
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(out)):
+            for j in range(i + 1, len(out)):
+                a, b = out[i], out[j]
+                if not (is_thin(a, ref) and is_thin(b, ref)):
+                    continue
+                # '=' и '÷' — это два параллельных штриха одинаковой длины
+                ov = min(a.x1, b.x1) - max(a.x0, b.x0) + 1
+                if ov < 0.75 * min(a.w, b.w):
+                    continue
+                gap = max(0, max(a.y0, b.y0) - min(a.y1, b.y1))
+                if gap > 0.45 * ref:
+                    continue
+                out[i] = Comp(min(a.x0, b.x0), max(a.x1, b.x1),
+                              min(a.y0, b.y0), max(a.y1, b.y1), a.area + b.area)
+                out.pop(j)
+                changed = True
+                break
+            if changed:
+                break
+    return out
 
 
 def group_glyphs(comps, ref):
     """Склеивает компоненты одного глифа ('=', '÷', '%', '!') в один бокс."""
+    comps = merge_strokes(comps, ref)
     items = [c for c in comps if not is_bar(c, ref)]
     bars = [c for c in comps if is_bar(c, ref)]
     items.sort(key=lambda c: c.x0)
@@ -376,6 +411,22 @@ def _is_number(s):
     return len(s) > 0 and all(ch in '0123456789.' for ch in s)
 
 
+def is_sup(g, base):
+    """Надстрочник: мельче базы, выше неё и заканчивается в её верхней части."""
+    if g.box.h > 0.95 * base.box.h:
+        return False
+    if g.box.cy >= base.box.cy - 0.15 * base.box.h:
+        return False
+    return g.box.y1 <= base.box.y0 + 0.55 * base.box.h
+
+
+def wrap_expr(s):
+    """Скобки только там, где без них изменится смысл."""
+    if s and all(ch not in s for ch in '+-*/^'):
+        return s
+    return '(' + s + ')'
+
+
 def join_tokens(tokens):
     out = ''
     prev = None
@@ -388,11 +439,40 @@ def join_tokens(tokens):
     return out
 
 
+ROOT_SIGNS = ('√', '∛')
+
+
+def root_fn(cls):
+    return 'cbrt' if cls == '∛' else 'sqrt'
+
+
 class Glyph:
     __slots__ = ('box', 'cls', 'conf')
 
     def __init__(self, box, cls, conf):
         self.box, self.cls, self.conf = box, cls, conf
+
+
+def _pick_vinculums(glyphs, bars, ref):
+    """Сопоставляет каждому знаку корня его черту (винкулум)."""
+    vin = {}
+    taken = set()
+    for gi, g in enumerate(glyphs):
+        if g.cls not in ROOT_SIGNS:
+            continue
+        best, best_d = None, None
+        for bi, b in enumerate(bars):
+            if bi in taken:
+                continue
+            if b.x0 - g.box.x1 > 0.45 * ref or b.x1 < g.box.x1 or b.y0 > g.box.cy:
+                continue
+            d = abs(b.y0 - g.box.y0)
+            if best is None or d < best_d:
+                best, best_d = bi, d
+        if best is not None:
+            vin[gi] = best
+            taken.add(best)
+    return vin
 
 
 def assemble(glyphs, bars, ref, line_cy):
@@ -405,7 +485,7 @@ def assemble(glyphs, bars, ref, line_cy):
 
     # 0) корень, у которого черта слилась со знаком (широкий бокс)
     for gi, g in enumerate(glyphs):
-        if g.cls != '√' or gi in used_glyphs:
+        if g.cls not in ROOT_SIGNS or gi in used_glyphs:
             continue
         if g.box.w <= 1.15 * ref:
             continue
@@ -420,39 +500,13 @@ def assemble(glyphs, bars, ref, line_cy):
         for j, _ in rad:
             used_glyphs.add(j)
         inner = assemble([h for _, h in rad], [], ref, line_cy)
-        tokens.append(('x', g.box.x0, 'sqrt(' + inner + ')'))
+        tokens.append(('x', g.box.x0, root_fn(g.cls) + '(' + inner + ')'))
 
-    # 1) корни: '√' + черта справа сверху
-    for gi, g in enumerate(glyphs):
-        if g.cls != '√' or gi in used_glyphs:
-            continue
-        best = None
-        for bi, b in enumerate(bars):
-            if bi in used_bars:
-                continue
-            if b.x0 - g.box.x1 <= 0.40 * ref and abs(b.y0 - g.box.y0) <= 0.45 * ref:
-                if best is None or b.w > bars[best].w:
-                    best = bi
-        if best is None:
-            continue
-        bar = bars[best]
-        used_bars.add(best)
-        used_glyphs.add(gi)
-        rad = []
-        for j, h in enumerate(glyphs):
-            if j in used_glyphs:
-                continue
-            if h.box.cx >= bar.x0 - 0.12 * ref and h.box.cx <= bar.x1 + 0.12 * ref \
-                    and h.box.cy > bar.y0 - 0.15 * ref:
-                rad.append((j, h))
-        for j, _ in rad:
-            used_glyphs.add(j)
-        inner = assemble([h for _, h in rad], [], ref, line_cy)
-        tokens.append(('x', g.box.x0, 'sqrt(' + inner + ')'))
+    vin = _pick_vinculums(glyphs, bars, ref)
 
-    # 2) дроби
+    # 1) дроби (черты, не занятые корнями)
     for bi, b in enumerate(bars):
-        if bi in used_bars:
+        if bi in used_bars or bi in vin.values():
             continue
         num, den = [], []
         for j, h in enumerate(glyphs):
@@ -469,10 +523,36 @@ def assemble(glyphs, bars, ref, line_cy):
         used_bars.add(bi)
         for j, _ in num + den:
             used_glyphs.add(j)
-        n = assemble([h for _, h in num], [], ref, line_cy)
-        d = assemble([h for _, h in den], [], ref, line_cy)
+        # черты корней внутри числителя/знаменателя передаём в рекурсию
+        for j, _ in num + den:
+            if j in vin:
+                used_bars.add(vin[j])
+        nb = [bars[vin[j]] for j, _ in num if j in vin]
+        db = [bars[vin[j]] for j, _ in den if j in vin]
+        n = assemble([h for _, h in num], nb, ref, line_cy)
+        d = assemble([h for _, h in den], db, ref, line_cy)
         if n and d:
-            tokens.append(('x', b.x0, '(' + n + ')/(' + d + ')'))
+            tokens.append(('x', b.x0, wrap_expr(n) + '/' + wrap_expr(d)))
+
+    # 2) корни со своей чертой
+    for gi, bi in vin.items():
+        g = glyphs[gi]
+        if gi in used_glyphs or bi in used_bars:
+            continue
+        b = bars[bi]
+        used_bars.add(bi)
+        used_glyphs.add(gi)
+        rad = []
+        for j, h in enumerate(glyphs):
+            if j in used_glyphs:
+                continue
+            if h.box.cx >= b.x0 - 0.12 * ref and h.box.cx <= b.x1 + 0.12 * ref \
+                    and h.box.y0 <= b.y1 + 1.2 * ref and h.box.cy > b.y0 - 0.15 * ref:
+                rad.append((j, h))
+        for j, _ in rad:
+            used_glyphs.add(j)
+        inner = assemble([h for _, h in rad], [], ref, line_cy)
+        tokens.append(('x', g.box.x0, root_fn(g.cls) + '(' + inner + ')'))
 
     # 3) обычные глифы + надстрочники (степени)
     rest = [(j, g) for j, g in enumerate(glyphs) if j not in used_glyphs]
@@ -481,12 +561,11 @@ def assemble(glyphs, bars, ref, line_cy):
     i = 0
     while i < len(rest):
         j, g = rest[i]
-        if base is not None and g.box.h <= 0.95 * base.box.h and \
-                g.box.cy < base.box.cy - 0.12 * base.box.h:
+        if base is not None and is_sup(g, base):
             sup = []
             while i < len(rest):
                 j2, g2 = rest[i]
-                if g2.box.h <= 0.95 * base.box.h and g2.box.cy < base.box.cy - 0.12 * base.box.h:
+                if is_sup(g2, base):
                     sup.append(g2)
                     i += 1
                 else:
@@ -496,7 +575,7 @@ def assemble(glyphs, bars, ref, line_cy):
                 cls_list = cls_list[1:]
             inner = join_tokens(cls_list)
             if inner:
-                tokens.append(('x', sup[0].box.x0, '^(' + inner + ')'))
+                tokens.append(('x', sup[0].box.x0, '^' + wrap_expr(inner)))
             continue
         tokens.append(('x', g.box.x0, '.' if g.cls == ',' else g.cls))
         base = g

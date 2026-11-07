@@ -145,6 +145,14 @@ def parse_layout(expr, font):
     return HBox(nodes, 2)
 
 
+def _is_num_tail(node):
+    if isinstance(node, Glyph):
+        return node.ch in '0123456789.,'
+    if isinstance(node, Sup):
+        return _is_num_tail(node.base)
+    return False
+
+
 def _sub_size(font, k):
     path = font.path
     return ImageFont.truetype(path, max(9, int(round(font.size * k))))
@@ -191,6 +199,9 @@ def _parse(s, i, font, stop):
             else:
                 inner, k = _parse(s, j, font, '^*/+-)')
             num = [nodes.pop()]
+            # в числитель входит весь хвост числа: '100/4' -> 100/4, а не 1,0,(0/4)
+            while nodes and _is_num_tail(nodes[-1]):
+                num.insert(0, nodes.pop())
             nodes.append(Frac(HBox(num, 0), HBox(inner, 0), font))
             i = k
             continue
