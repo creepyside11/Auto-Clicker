@@ -11,6 +11,7 @@ object StepType {
     const val CHECK = "check"
     const val BACK = "back"
     const val HOME = "home"
+    const val OPEN = "open"
 
     fun title(type: String): String = when (type) {
         TAP -> "Тап"
@@ -21,6 +22,7 @@ object StepType {
         CHECK -> "Условие по тексту"
         BACK -> "Назад"
         HOME -> "Домой"
+        OPEN -> "Открыть приложение"
         else -> type
     }
 }
@@ -79,6 +81,7 @@ data class Step(
         StepType.CHECK -> "если «${expected.take(18)}» в области"
         StepType.BACK -> "кнопка Назад"
         StepType.HOME -> "кнопка Домой"
+        StepType.OPEN -> "открыть " + text.substringAfterLast('.').take(22)
         else -> type
     }
 }
@@ -89,8 +92,16 @@ data class Scenario(
     var steps: MutableList<Step> = mutableListOf(),
     var loops: Int = 1,
     var forever: Boolean = false,
-    var delayBetweenLoopsMs: Long = 300L
-)
+    var delayBetweenLoopsMs: Long = 300L,
+    // Смещение окна: сценарий задан в координатах окна, движок прибавляет это смещение.
+    var offsetX: Int = 0,
+    var offsetY: Int = 0,
+    var offsetW: Int = 0,
+    var offsetH: Int = 0
+) {
+    fun shiftedX(x: Int): Int = x + offsetX
+    fun shiftedY(y: Int): Int = y + offsetY
+}
 
 data class Watcher(
     var id: String = UUID.randomUUID().toString(),

@@ -1,5 +1,6 @@
 package com.creepyside.liquidclick.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.creepyside.liquidclick.core.Bubbles
+import com.creepyside.liquidclick.core.Windows
 import com.creepyside.liquidclick.core.Engine
 import com.creepyside.liquidclick.core.Picker
 import com.creepyside.liquidclick.data.Repo
@@ -306,7 +308,8 @@ private fun ScenarioEditor(scenario: Scenario, initialStepId: String? = null, on
                         Spacer(Modifier.height(8.dp))
                         val types = listOf(
                             StepType.TAP, StepType.LONG, StepType.SWIPE, StepType.TEXT,
-                            StepType.WAIT, StepType.CHECK, StepType.BACK, StepType.HOME
+                            StepType.WAIT, StepType.CHECK, StepType.BACK, StepType.HOME,
+                            StepType.OPEN
                         )
                         types.chunked(2).forEach { pair ->
                             Row(
@@ -327,6 +330,11 @@ private fun ScenarioEditor(scenario: Scenario, initialStepId: String? = null, on
                                             StepType.LONG -> Step(
                                                 type = StepType.LONG,
                                                 durationMs = 800L
+                                            )
+                                            StepType.OPEN -> Step(
+                                                type = StepType.OPEN,
+                                                text = "",
+                                                waitMs = 900L
                                             )
                                             else -> Step(type = type)
                                         }
@@ -368,6 +376,7 @@ private fun StepEditorDialog(
     var yText by remember(original.id) { mutableStateOf(original.y.toString()) }
     var x2Text by remember(original.id) { mutableStateOf(original.x2.toString()) }
     var y2Text by remember(original.id) { mutableStateOf(original.y2.toString()) }
+    var showAppPick by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxWidth().padding(16.dp)) {
@@ -497,6 +506,26 @@ private fun StepEditorDialog(
                             )
                         }
 
+                        StepType.OPEN -> {
+                            GlassField(
+                                draft.text,
+                                { draft = draft.copy(text = it) },
+                                "Пакет приложения",
+                                placeholder = "com.android.chrome"
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            GlassButton("Выбрать приложение", Modifier.fillMaxWidth()) {
+                                showAppPick = true
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Шаг открывает приложение (в окне сценария, если задано смещение). " +
+                                    "В паре с шагом «Домой» получается цикл: свернуть и открыть заново.",
+                                color = TextLo,
+                                fontSize = 11.sp
+                            )
+                        }
+
                         StepType.WAIT -> {
                             SliderRow(
                                 title = "Пауза",
@@ -585,6 +614,49 @@ private fun StepEditorDialog(
                     }
                     Spacer(Modifier.height(12.dp))
                     GlassButton("Отмена", Modifier.fillMaxWidth()) { onDismiss() }
+                }
+            }
+        }
+    }
+
+    if (showAppPick) {
+        AppPickDialog(
+            onPick = { pkg ->
+                draft = draft.copy(text = pkg)
+                showAppPick = false
+            },
+            onClose = { showAppPick = false }
+        )
+    }
+}
+
+@Composable
+private fun AppPickDialog(onPick: (String) -> Unit, onClose: () -> Unit) {
+    val context = LocalContext.current
+    var query by remember { mutableStateOf("") }
+    val apps = remember { Windows.apps(context) }
+    val filtered = remember(query) {
+        if (query.isBlank()) apps else apps.filter {
+            it.label.contains(query, true) || it.packageName.contains(query, true)
+        }
+    }
+    Dialog(onDismissRequest = onClose) {
+        GlassCard(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
+            SectionTitle("Приложение")
+            Spacer(Modifier.height(8.dp))
+            GlassField(query, { query = it }, "Поиск", placeholder = "название или пакет")
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(filtered) { app ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(app.packageName) }
+                            .padding(vertical = 6.dp)
+                    ) {
+                        Text(app.label, color = TextHi, fontSize = 14.sp)
+                        Text(app.packageName, color = TextLo, fontSize = 10.sp)
+                    }
                 }
             }
         }

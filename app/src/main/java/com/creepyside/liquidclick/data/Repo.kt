@@ -36,6 +36,13 @@ object Repo {
     var panelSide by mutableStateOf(0)          // 0 — слева, 1 — справа
     var panelAlpha by mutableStateOf(92)        // непрозрачность панели, %
     val quickTexts = mutableStateListOf<String>()
+    var leftPkg by mutableStateOf("")
+    var rightPkg by mutableStateOf("")
+    var leftScenarioId by mutableStateOf("")
+    var rightScenarioId by mutableStateOf("")
+    var pairLoops by mutableStateOf(1)
+    var pairForever by mutableStateOf(false)
+    var pairCollapse by mutableStateOf(true)
     var lastScenarioId by mutableStateOf("")
     /** Счётчик изменений — заставляет Compose перерисовать списки после правок из оверлеев. */
     var version by mutableStateOf(0)
@@ -65,6 +72,13 @@ object Repo {
         lastScenarioId = p.getString("lastScenario", "") ?: ""
         panelEnabled = p.getBoolean("panel", false)
         bubblesEnabled = p.getBoolean("bubbles", false)
+        leftPkg = p.getString("leftPkg", "") ?: ""
+        rightPkg = p.getString("rightPkg", "") ?: ""
+        leftScenarioId = p.getString("leftScenarioId", "") ?: ""
+        rightScenarioId = p.getString("rightScenarioId", "") ?: ""
+        pairLoops = p.getInt("pairLoops", 1)
+        pairForever = p.getBoolean("pairForever", false)
+        pairCollapse = p.getBoolean("pairCollapse", true)
         panelSide = p.getInt("panelSide", 0)
         panelAlpha = p.getInt("panelAlpha", 92)
         runCatching {
@@ -89,6 +103,13 @@ object Repo {
                 .putString("lastScenario", lastScenarioId)
                 .putBoolean("panel", panelEnabled)
                 .putBoolean("bubbles", bubblesEnabled)
+                .putString("leftPkg", leftPkg)
+                .putString("rightPkg", rightPkg)
+                .putString("leftScenarioId", leftScenarioId)
+                .putString("rightScenarioId", rightScenarioId)
+                .putInt("pairLoops", pairLoops)
+                .putBoolean("pairForever", pairForever)
+                .putBoolean("pairCollapse", pairCollapse)
                 .putInt("panelSide", panelSide)
                 .putInt("panelAlpha", panelAlpha)
                 .putString("quickTexts", gson.toJson(quickTexts))
